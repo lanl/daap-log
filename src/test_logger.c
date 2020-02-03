@@ -1,7 +1,7 @@
 /*
  * Tester for daap_log library
  */
-#include "daaplog.h"
+#include "daap_log.h"
 
 int main( int argc, char *argv[] ) {
     int log_level = LOG_NOTICE;
