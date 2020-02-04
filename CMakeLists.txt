@@ -11,22 +11,18 @@ set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug or Re
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES} )
 
 # make ../ the default install prefix and provide help text for ccmake
-set(CMAKE_INSTALL_PREFIX .. CACHE STRING "Install path prefix, prepended onto install directories.")
+set(CMAKE_INSTALL_PREFIX .. CACHE PATH "Install path prefix, prepended onto install directories.")
 
 project(daap_log VERSION 0.1)
 
-option(BUILD_SHARED_LIB "Build daap_log library as a shared object (if OFF, library will be static)" ON)
-option(BUILD_TEST "Build test/example to demonstrate usage of daap_log library" ON)
-option(USE_SYSLOG "Use Syslog as transport layer" ON)
-option(USE_LDMS "Use LDMS Streams as transport layer" OFF)
-option(USE_RABBIT "Use RabbitMQ as transport layer" OFF)
-option(USE_P2P "Use point-to-point user processes as transport layer (launched with user job)" OFF)
+# make syslog the default transport layer and provide help text
+set(TRANSPORT_LAYER syslog CACHE STRING "Choose transport layer (syslog, LDMS Streams, RabbitMQ, Point-to-point)")
+set_property(CACHE TRANSPORT_LAYER PROPERTY STRINGS syslog LDMS RabbitMQ P2P)
 
-if ((USE_SYSLOG AND (USE_LDMS OR USE_RABBIT OR USE_P2P)) 
-    OR (USE_LDMS AND (USE_RABBIT OR USE_P2P)) 
-    OR (USE_RABBIT AND USE_P2P) ) 
-   message(FATAL_ERROR "The daap_log library can only be built for one transport layer at a time")
-endif()
+set(LIBRARY_TYPE Shared CACHE STRING "Choose type of library built (Shared, Static)")
+set_property(CACHE LIBRARY_TYPE PROPERTY STRINGS Shared Static)
+
+option(BUILD_TEST "Build test/example to demonstrate usage of daap_log library" ON)
 
 #Add source files directory
 add_subdirectory(src)
