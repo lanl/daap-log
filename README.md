@@ -4,7 +4,7 @@ The Daap logging API provides a consistent interface to user codes to enable out
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
 
@@ -17,18 +17,25 @@ cmake version 3.16.3
 CMake suite maintained and supported by Kitware (kitware.com/cmake).
 ```
 
-Also requires a working version of syslog. MacOS has broken syslog in later releases; os_log is the MacOS substitute for syslog but
-does not have the exact same functionality. If you encounter problems with the Mac version, feel free to let us know, but that development is a low priority for us.
+Also requires a working version of the transport layer selected during configuration in order to work properly. 
+
+The default transport is syslog. MacOS has broken syslog in later releases; os_log is the MacOS substitute for syslog but does not have the exact same functionality. If you encounter problems with the Mac version, feel free to let us know, but that development is a low priority for us.
 
 ### Installing
 
-We recommend using out-of-source builds to 
+We recommend using out-of-source builds to keep the src/ directory clean and the rebuilding process simple:
 
 ```
 cd build
 ccmake .. 
 make
 ```
+
+On first launch, ccmake will display an 'EMPTY CACHE' message. Type 'c' to configure, which will then launch a 
+screen that shows default configuration options and provides the ability to change these before running the 
+actual configure step. 
+
+Once you have selected the options you want, type 'c' to configure, then 'g' to generate the Makefiles and exit.
 
 To see detailed output from make:
 
@@ -40,6 +47,14 @@ To install:
 
 ```
 make install
+```
+
+To start afresh after building:
+```
+rm -rf build/*
+cd build
+ccmake ..
+etc.
 ```
 
 ## Running the example

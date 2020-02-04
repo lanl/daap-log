@@ -1,17 +1,17 @@
 #CMakeLists.txt file specific to the src directory
 
-if (BUILD_SHARED_LIB)
+if ("${LIBRARY_TYPE}" STREQUAL "Shared")
    add_library(daap_log SHARED)
 else()
    add_library(daap_log STATIC)
 endif()
 
 ### START SETTINGS FOR RPATH ###
-# use, i.e. don't skip the full RPATH for the build tree
+# use RPATH, i.e. don't skip the full RPATH for the build tree
 SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 
-# when building, don't use the install RPATH already
-# (but later on when installing)
+# don't use the install RPATH when building
+# (only later on when installing)
 SET(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
 
 # add the automatically determined parts of the RPATH
@@ -45,13 +45,13 @@ target_sources(daap_log
 	    daap_log.h
 )
 
-if (USE_SYSLOG)
+if ("${TRANSPORT_LAYER}" STREQUAL "syslog")
 	target_compile_definitions(daap_log PRIVATE -DUSE_SYSLOG)
-elseif (USE_LDMS)
+elseif ("${TRANSPORT_LAYER}" STREQUAL "LDMS")
 	target_compile_definitions(daap_log PRIVATE -DUSE_LDMS)
-elseif (USE_RABBIT)
+elseif ("${TRANSPORT_LAYER}" STREQUAL "RabbitMQ")
 	target_compile_definitions(daap_log PRIVATE -DUSE_RABBIT)
-elseif (USE_P2P)
+elseif ("${TRANSPORT_LAYER}" STREQUAL "P2P")
 	target_compile_definitions(daap_log PRIVATE -DUSE_P2P)
 endif()
 
