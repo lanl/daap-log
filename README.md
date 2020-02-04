@@ -22,12 +22,18 @@ does not have the exact same functionality. If you encounter problems with the M
 
 ### Installing
 
-To build:
+We recommend using out-of-source builds to 
 
 ```
 cd build
 ccmake .. 
 make
+```
+
+To see detailed output from make:
+
+```
+make VERBOSE=1
 ```
 
 To install:
@@ -38,11 +44,13 @@ make install
 
 ## Running the example
 
-A simple example demonstrating the logging capability is included.
-**Say more about how to build and run it here**
+A simple example demonstrating the logging capability is included. BUILD_TEST must be enabled in
+the initial configure options for it to be built.
+
+After running make install:
 
 ```
-cd build/src
+cd test
 ./test_logger
 ```
 
