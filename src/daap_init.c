@@ -1,40 +1,6 @@
 /* 
  * Data Analytics Application Profiling API
  *
- * A simplifying and abstracting usercode-oriented library that 
- * provides the means for codes running on HPC cluster compute nodes
- * to log messages to a logfile on an external system -
- * at LANL this is the Tivan Data Analytics system.
- * From the external system, logs can be analyzed (to see if a code is 
- * still progressing normally, for instance).
- *
- * The API provided here does not do the transfer to the Analytics system
- * itself; instead it communicates with the thing (message broker, syslog, 
- * LDMSD, point-to-point communicator, or whatever else) that does the 
- * transfer off the cluster and then gets the data to a place where it
- * can be accessed from the Data Analytics system.
- *
- * Also provides a function to create formatted JSON for a later insert
- * as a row in a remote timeseries database
- * (in the LANL case, OpeTSDB, and again, residing on Tivan) 
- * assuming the row is correctly formatted. This data can then 
- * be visualized using Grafana on the Analytics system. 
- *
- * Users should be made aware that if the row is *not* correctly 
- * formatted or if there is some other problem with the data,
- * the failure to insert may be a silent one. This is because the 
- * attempt to insert into the database is an independent process 
- * that happens after data has moved off of compute nodes, with no
- * link back to the user process that created the data using this library.
- * 
- * The actual means by which log messages (or database rows) make it off
- * the compute cluster and into the external analytics system are hidden 
- * from the user by this library. 
- *
- * Header file: daap_log.h
- * Shared library: libdaap_log.so
- * Static library: libdaap_log.a
- *
  * Functions in this file:
  *****************
  * daapInit(const char *app_name, int level)
@@ -53,6 +19,13 @@
  * Original author: Charles Shereda, cpshereda@lanl.gov
  */
 
+#include <stdio.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "daap_log.h"
 
 #if defined USE_SYSLOG
@@ -66,17 +39,14 @@
 
 #elif defined USE_LDMS
 
-#elif defined USE_P2P
-
-#endif
-
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
+#elif defined USE_TCP
+# include <sys/socket.h>
+# include <arpa/inet.h>
+# define PORT 5555
+/* socket struct */
+struct sockaddr_in servaddr;
+int sockfd;
+#endif 
 
 //static bool volatile first_pass = true;
 
@@ -208,12 +178,13 @@ static int daap_gethostname(char *hostname) {
 }
 
 /* Initializer for library. */
-int daapInit(const char *app_name, int msg_level, int agg_type) {
+int daapInit(const char *app_name, int msg_level, int agg_val) {
     // Might need to be thread safe. What happens if two openmp
     // threads enter this at the same time when we are using a global
     // struct to hold the initialized data?
 
     int ret_val = 0;
+    const char *buff;
 
     /* allocate memory for and populate init_data.hostname with the 
      * hostname by calling daap_gethostname().*/
@@ -223,23 +194,87 @@ int daapInit(const char *app_name, int msg_level, int agg_type) {
         // fprintf(stderr, something); Depending on debug level??
         return ret_val;
     }
- 
-    /* copy the user-provided name of the app into init_data */
+
+    /* note that app_name is a user-provided value rather than 
+     * using the command line value */
     strcpy(init_data.appname, app_name);
+    init_data.agg_val = agg_val;
+
+    /* get slurm job id */
+    if( (buff = getenv("SLURM_JOB_ID")) != NULL ) {
+        strcpy(init_data.job_id, buff);
+    }
+    else {
+        strcpy(init_data.job_id, " ");
+    }
+
+    /* determine and save the amount of mem required for everything in the struct*/
+    init_data.alloc_size = 
+	         strlen(APP_JSON_KEY) + 2
+	       + strlen(init_data.appname) + 2
+	       + strlen(HOST_JSON_KEY) + 2
+               + strlen(init_data.hostname) + 2 
+	       + strlen(JOB_ID_JSON_KEY) + 2
+	       + strlen(init_data.job_id) + 2
+	       + strlen(TS_JSON_KEY) + 2
+	       + strlen(MSG_JSON_KEY) + 2;
+    /* build the first part of the output json string (the part that won't change
+     * message to message) */
+    init_data.header_data = calloc(init_data.alloc_size, 1);
+    init_data.header_data[0] = '{';
+    strcat(init_data.header_data, APP_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.appname);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, HOST_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.hostname);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, JOB_ID_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.job_id);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, TS_JSON_KEY);
+    strcat(init_data.header_data, "\"");
 
     /* if we are using syslog, open the log with the user-provided msg_level */
 #if defined USE_SYSLOG
 #   if defined DEBUG
         openlog(init_data.appname, LOG_PERROR | LOG_CONS | LOG_PID | LOG_NDELAY, msg_level);
 #   else
-        openlog(app_name, LOG_NDELAY | LOG_PID, LOG_USER);
+	//setlogmask(LOG_UPTO (LOG_NOTICE));
+        openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
 #   endif
 
 #elif defined USE_RABBIT
 
 #elif defined USE_LDMS
 
-#elif defined USE_P2P
+#elif defined USE_TCP
+    /* open a socket for later comms */ 
+
+    /* create and verify socket */
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    ret_val = sockfd;
+    if( ret_val < 0 ) {
+        perror("socket creation failed");
+        return ret_val;
+    }
+
+    bzero(&servaddr, sizeof(servaddr));
+
+    /* assign IP, PORT */
+    servaddr.sin_family = AF_INET;
+    /* server is always on the local host */
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(PORT);
+
+    /* connect the client to the server */
+    ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)); 
+    if( ret_val != 0 ) {
+        perror("connection to the TCP server failed");
+        return ret_val;
+    }
 
 #endif
     return ret_val;
@@ -251,6 +286,12 @@ int daapFinalize(void) {
     int ret_val = 0;
     free(init_data.hostname);
     free(init_data.appname);
-    // other stuff here such as closing the logfile or connection
+    free(init_data.job_id);
+    free(init_data.header_data);
+    /* other stuff here such as closing the logfile or connection */
+#if defined USE_TCP
+    close(sockfd);
+#endif
+
     return ret_val;
 }

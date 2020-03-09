@@ -93,7 +93,7 @@
 
 #elif defined USE_LDMS
 
-#elif defined USE_P2P
+#elif defined USE_TCP
 
 #endif
 
@@ -183,7 +183,8 @@ int daapMetricWrite(metric_t metric) {
 
 #elif defined USE_LDMS
 
-#elif defined USE_P2P
+#elif defined USE_TCP
+    // send record over our already-opened socket
 
 #endif
 

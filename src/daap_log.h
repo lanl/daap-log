@@ -6,25 +6,6 @@
  * into a database on a remote monitoring cluster 
  * (Tivan at LANL on the unclassified network).
  *
- * Header file: daap_log.h
- *
- * Functions:
- *
- *   daapTsdbDestroyMetric() frees any memory that was allocated by 
- *   daapTsdbCreateMetric() and removes the association between the metric_id
- *   and the metric_name.
- *
- *   While some format checking will be done, it is ultimately the
- *   responsibility of the caller to ensure that the metric, value, and tags
- *   are useful and well-formatted so that they will successfully insert
- *   into the database and so they can later be queried and visualized. 
- *   Because data must transfer off the cluster and pass through 
- *   a message broker prior to insertion into the database, no immediate
- *   feedback on whether the insertion succeeded or failed shoud be
- *   expected, either now or in the future.
- *   In addition to the user-defined tags, hostname (and possibly cpu ID
- *   and job ID) will also be written as tags to each row entry. 
- *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
  * Original author: Charles Shereda, cpshereda@lanl.gov
  *
@@ -73,8 +54,8 @@ typedef struct {
     char *metric_value;
     int metric_id; 
     char *hostname;
+    char *job_id;
     int cpu_id;
-    int job_id;
     int num_tags;
     tag_t tag_array[10];
 } metric_t;
@@ -83,20 +64,29 @@ typedef struct {
 typedef struct {
     char *appname;
     char *hostname;
+    char *job_id;
     int level;
-    int job_id;
+    int agg_val;
+    int alloc_size;
+    char *header_data;
 } daap_init_t;
+
+#define APP_JSON_KEY "\"appname\":"
+#define HOST_JSON_KEY "\"hostname\":"
+#define JOB_ID_JSON_KEY "\"job_id\":"
+#define TS_JSON_KEY "\"timestamp\":"
+#define MSG_JSON_KEY "\"message\":"
 
 #define DAAP_SUCCESS 0
 #define DAAP_ERROR  -1
 #define DAAP_ERROR_OUT_OF_MEMORY 1
 #define DAAP_ERROR_IN_ERRNO 2
 
-#define DAAP_AGGREGATE_OFF       0
-#define DAAP_AGGREGATE_LOW      10
-#define DAAP_AGGREGATE_MEDIUM  100
-#define DAAP_AGGREGATE_HIGH   1000
-#define DAAP_AGGREGATE_SUPER 10000
+#define DAAP_AGG_OFF       0
+#define DAAP_AGG_LOW      10
+#define DAAP_AGG_MED     100
+#define DAAP_AGG_HIGH   1000
+#define DAAP_AGG_SUPER 10000
 
 BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
@@ -111,8 +101,8 @@ int daapFinalize(void);
 /* Function to write a log entry from within an app running on a cluster 
  * compute node. This entry will be transported off-cluster to the data 
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
- * called prior to invoking. */
-int daapLogWrite(const char *app_name, int level, int keyval, const char *message, ...);
+ * called prior to invoking daapLogWrite. */
+int daapLogWrite(int keyval, const char *message, ...);
 
 /* Initializes the combination of a named metric and a number of named tags
  *   (up to 10). Values for the metric and tags are then specified in each
