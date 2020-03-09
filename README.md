@@ -86,12 +86,12 @@ Please read [CONTRIBUTING.md](https://github.com/daap_log/xxx) for details on ou
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/daap_log/tags). 
 
 ## Authors
 
 * **Charles Shereda** * - (cpshereda@lanl.gov)
-* **Hugh Greenberg**  * - (hgh@lanl.gov)
+* **Hugh Greenberg**  * - (hng@lanl.gov)
 
 See also the list of [contributors](https://github.com/daap_log/contributors) who participated in this project.
 

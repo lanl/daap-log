@@ -13,11 +13,14 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES
 # make ../ the default install prefix and provide help text for ccmake
 set(CMAKE_INSTALL_PREFIX .. CACHE PATH "Install path prefix, prepended onto install directories.")
 
-project(daap_log VERSION 0.1)
+set(VERSION_MAJOR 0)
+set(VERSION_MINOR 1)
+set(VERSION_PATCH 0)
+project(daap_log VERSION ${VERSION_MAJOR}.${VERSION_MINOR})
 
 # make syslog the default transport layer and provide help text
-set(TRANSPORT_LAYER syslog CACHE STRING "Choose transport layer (syslog, LDMS Streams, RabbitMQ, Point-to-point)")
-set_property(CACHE TRANSPORT_LAYER PROPERTY STRINGS syslog LDMS RabbitMQ P2P)
+set(TRANSPORT_LAYER syslog CACHE STRING "Choose transport layer (syslog, LDMS Streams, RabbitMQ, TCP (FluentBit))")
+set_property(CACHE TRANSPORT_LAYER PROPERTY STRINGS syslog LDMS RabbitMQ TCP)
 
 set(LIBRARY_TYPE Shared CACHE STRING "Choose type of library built (Shared, Static)")
 set_property(CACHE LIBRARY_TYPE PROPERTY STRINGS Shared Static)
@@ -34,5 +37,5 @@ link_directories(build)
 # so that we will find daap_logConfig.h
 target_include_directories(daap_log PUBLIC
                            "${PROJECT_BINARY_DIR}"
-                           )
+)
 
