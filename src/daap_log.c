@@ -97,7 +97,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
     struct timeval timestruct;
     unsigned long timestamp_millisec;
     char *timestamp_str, *buff, *full_message;
-    int ts_len, msg_len, alloc_sz, agg_threshold = 0;
+    int ts_len, msg_len, buff_sz, agg_threshold = 0;
     FILE *null_device;
 
 #if defined DEBUG
@@ -121,16 +121,17 @@ int daapLogWrite(int keyval, const char *message, ...) {
      * this call allocates the memory for the input string, which must be freed
      * outside the call (at the end of this block). */
     ts_len = getmillisectime_as_str(&timestamp_str);
+#if defined DEBUG
     printf("length = %d, timestamp_str = %s\n", ts_len, timestamp_str);
-
+#endif
     // do some sanity checking on the data
 
     /* create JSON output from the data that's been passed in plus what's
      * already been populated in init_data struct */
-    alloc_sz = init_data.alloc_size
+    buff_sz = init_data.alloc_size
                + ts_len + 2 
 	       + msg_len + 2;
-    buff = calloc(alloc_sz, 1);
+    buff = calloc(buff_sz, 1);
 
     strcpy(buff, init_data.header_data);
     strcat(buff, timestamp_str);
@@ -139,7 +140,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
     strcat(buff, "\"");
     strcat(buff, full_message);
     strcat(buff, "\"}");
-
+    printf("complete json string = %s\n",buff);
     free(full_message);
 
     // if we are aggregating, just put the data in an internal buffer
@@ -173,7 +174,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
 
 #elif defined USE_TCP
     /* send log message over socket opened with daapInit */
-    write(sockfd, buff, sizeof(buff));
+    write(sockfd, buff, buff_sz);
 
 #endif
     free(timestamp_str);
