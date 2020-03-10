@@ -83,7 +83,7 @@ daap_init_t init_data;
  * truncated. It also tries again in the case where gethostname returns an
  * error because the buffer is initially too short.
  */
-static int daap_gethostname(char *hostname) {
+static int daap_gethostname(char **hostname) {
 
     size_t count, length = LOCAL_MAXHOSTNAMELEN;
     int ret_val, num_tries = 0;
@@ -118,7 +118,7 @@ static int daap_gethostname(char *hostname) {
                  * are expecting, so that should be checked by the
                  * caller.
                  */
-                hostname = buf;
+                *hostname = buf;
                 pthread_mutex_unlock(&gethost_mutex);
                 return DAAP_SUCCESS;
             }
@@ -188,23 +188,27 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
 
     /* allocate memory for and populate init_data.hostname with the 
      * hostname by calling daap_gethostname().*/
-    ret_val = daap_gethostname(init_data.hostname);
+    ret_val = daap_gethostname(&init_data.hostname);
     if( ret_val != 0 ) {
         // set errno?
         // fprintf(stderr, something); Depending on debug level??
         return ret_val;
     }
+    /*printf("ret_val = %d, Hostname = %s\n", ret_val, init_data.hostname);*/
 
     /* note that app_name is a user-provided value rather than 
      * using the command line value */
+    init_data.appname = calloc(1, strlen(app_name));
     strcpy(init_data.appname, app_name);
     init_data.agg_val = agg_val;
 
     /* get slurm job id */
     if( (buff = getenv("SLURM_JOB_ID")) != NULL ) {
+        init_data.job_id = calloc(1, strlen(buff));
         strcpy(init_data.job_id, buff);
     }
     else {
+        init_data.job_id = calloc(1,2);
         strcpy(init_data.job_id, " ");
     }
 
@@ -220,7 +224,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
 	       + strlen(MSG_JSON_KEY) + 2;
     /* build the first part of the output json string (the part that won't change
      * message to message) */
-    init_data.header_data = calloc(init_data.alloc_size, 1);
+    init_data.header_data = calloc(1, init_data.alloc_size);
     init_data.header_data[0] = '{';
     strcat(init_data.header_data, APP_JSON_KEY);
     strcat(init_data.header_data, "\"");
@@ -236,7 +240,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     strcat(init_data.header_data, "\",");
     strcat(init_data.header_data, TS_JSON_KEY);
     strcat(init_data.header_data, "\"");
-
+    printf("header data: %s\n", init_data.header_data);
     /* if we are using syslog, open the log with the user-provided msg_level */
 #if defined USE_SYSLOG
 #   if defined DEBUG
