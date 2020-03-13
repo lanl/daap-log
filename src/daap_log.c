@@ -39,7 +39,6 @@
 #include "daap_log.h"
 #include "daap_log_internal.h"
 
-//static bool volatile first_pass = true;
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -100,6 +99,11 @@ int daapLogWrite(int keyval, const char *message, ...) {
     int ts_len, msg_len, buff_sz, agg_threshold = 0;
     FILE *null_device;
 
+    if( !daapInit_called ) {
+        errno = EPERM;
+        perror("Initialize with daapInit() before calling daapLogWrite()");
+        return DAAP_ERROR;
+    }
 #if defined DEBUG
     va_start(args, message);
     vprintf (message, args);
@@ -140,7 +144,9 @@ int daapLogWrite(int keyval, const char *message, ...) {
     strcat(buff, "\"");
     strcat(buff, full_message);
     strcat(buff, "\"}");
+#if defined DEBUG
     printf("complete json string = %s\n",buff);
+#endif
     free(full_message);
 
     // if we are aggregating, just put the data in an internal buffer

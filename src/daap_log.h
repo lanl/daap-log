@@ -71,6 +71,7 @@ typedef struct {
     char *header_data;
 } daap_init_t;
 
+#define DAAP_JSON_KEY_VAL "\"source\":\"daap_log\","
 #define APP_JSON_KEY "\"appname\":"
 #define HOST_JSON_KEY "\"hostname\":"
 #define JOB_ID_JSON_KEY "\"job_id\":"
