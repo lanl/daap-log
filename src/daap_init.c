@@ -25,6 +25,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "daap_log.h"
 
@@ -48,7 +49,7 @@ struct sockaddr_in servaddr;
 int sockfd;
 #endif 
 
-//static bool volatile first_pass = true;
+bool daapInit_called = false;
 
 static pthread_mutex_t gethost_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -91,7 +92,7 @@ static int daap_gethostname(char **hostname) {
     /* thread safe */
     pthread_mutex_lock(&gethost_mutex);
 
-    char *buf = calloc( 1, length );
+    char *buf = calloc(length, 1);
     if( buf == NULL ) {
         pthread_mutex_unlock(&gethost_mutex);
         return DAAP_ERROR_OUT_OF_MEMORY;
@@ -103,7 +104,7 @@ static int daap_gethostname(char **hostname) {
         /*
          * Offer all but the last byte of the buffer to gethostname.
          */
-        ret_val = gethostname( buf, length - 1 );
+        ret_val = gethostname(buf, length - 1);
         /*
          * Terminate the buffer in the last position.
          */
@@ -191,30 +192,32 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     ret_val = daap_gethostname(&init_data.hostname);
     if( ret_val != 0 ) {
         // set errno?
-        // fprintf(stderr, something); Depending on debug level??
+        perror("error in call to gethostname, daapInit failed");
         return ret_val;
     }
     /*printf("ret_val = %d, Hostname = %s\n", ret_val, init_data.hostname);*/
 
     /* note that app_name is a user-provided value rather than 
      * using the command line value */
-    init_data.appname = calloc(1, strlen(app_name));
+    init_data.appname = calloc(strlen(app_name), 1);
     strcpy(init_data.appname, app_name);
     init_data.agg_val = agg_val;
 
     /* get slurm job id */
+    /* this assignment (w/o a malloc) should be ok since buff is a const char* */
     if( (buff = getenv("SLURM_JOB_ID")) != NULL ) {
-        init_data.job_id = calloc(1, strlen(buff));
+        init_data.job_id = calloc(strlen(buff), 1);
         strcpy(init_data.job_id, buff);
     }
     else {
-        init_data.job_id = calloc(1,2);
+        init_data.job_id = calloc(2, 1);
         strcpy(init_data.job_id, " ");
     }
 
     /* determine and save the amount of mem required for everything in the struct*/
     init_data.alloc_size = 
-	         strlen(APP_JSON_KEY) + 2
+                 strlen(DAAP_JSON_KEY_VAL) + 2
+	       + strlen(APP_JSON_KEY) + 2
 	       + strlen(init_data.appname) + 2
 	       + strlen(HOST_JSON_KEY) + 2
                + strlen(init_data.hostname) + 2 
@@ -224,8 +227,9 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
 	       + strlen(MSG_JSON_KEY) + 2;
     /* build the first part of the output json string (the part that won't change
      * message to message) */
-    init_data.header_data = calloc(1, init_data.alloc_size);
+    init_data.header_data = calloc(init_data.alloc_size, 1);
     init_data.header_data[0] = '{';
+    strcat(init_data.header_data, DAAP_JSON_KEY_VAL);
     strcat(init_data.header_data, APP_JSON_KEY);
     strcat(init_data.header_data, "\"");
     strcat(init_data.header_data, init_data.appname);
@@ -240,7 +244,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     strcat(init_data.header_data, "\",");
     strcat(init_data.header_data, TS_JSON_KEY);
     strcat(init_data.header_data, "\"");
-    printf("header data: %s\n", init_data.header_data);
     /* if we are using syslog, open the log with the user-provided msg_level */
 #if defined USE_SYSLOG
 #   if defined DEBUG
@@ -281,6 +284,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     }
 
 #endif
+    daapInit_called = true;
     return ret_val;
 }
 

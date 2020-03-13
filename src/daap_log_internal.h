@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #if defined USE_SYSLOG
 #    if defined __APPLE__
@@ -27,6 +28,8 @@ extern int sockfd;
 #endif
 
 #define NULL_DEVICE "/dev/null"
+
+extern bool daapInit_called;
 
 extern int getmillisectime_as_str(char **time_str);
 
