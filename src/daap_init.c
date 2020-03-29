@@ -28,30 +28,26 @@
 #include <stdbool.h>
 
 #include "daap_log.h"
-
-#if defined USE_SYSLOG
+/* Syslog includes */
 #    if defined __APPLE__
 #        include <os/log.h>
 #        include <pwd.h>
 #    else
 #        include <syslog.h>
 #    endif
-#elif defined USE_RABBIT
 
-#elif defined USE_LDMS
-
-#elif defined USE_TCP
+/* TCP includes/struct */
 # include <sys/socket.h>
 # include <arpa/inet.h>
 # define PORT 5555
+
 /* socket struct */
 struct sockaddr_in servaddr;
 int sockfd;
-#endif 
 
 bool daapInit_called = false;
-
 static pthread_mutex_t gethost_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #if defined __APPLE__ 
 #    define SYSLOGGER(level, args...) os_log(level, args)
@@ -179,10 +175,11 @@ static int daap_gethostname(char **hostname) {
 }
 
 /* Initializer for library. */
-int daapInit(const char *app_name, int msg_level, int agg_val) {
+int daapInit(const char *app_name, int msg_level, int agg_val, transport transport_type) {
     // Might need to be thread safe. What happens if two openmp
     // threads enter this at the same time when we are using a global
     // struct to hold the initialized data?
+    pthread_mutex_lock(&init_mutex);
 
     int ret_val = 0;
     const char *buff;
@@ -193,6 +190,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     if( ret_val != 0 ) {
         // set errno?
         perror("error in call to gethostname, daapInit failed");
+	pthread_mutex_unlock(&init_mutex);
         return ret_val;
     }
     /*printf("ret_val = %d, Hostname = %s\n", ret_val, init_data.hostname);*/
@@ -202,6 +200,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     init_data.appname = calloc(strlen(app_name), 1);
     strcpy(init_data.appname, app_name);
     init_data.agg_val = agg_val;
+    init_data.transport_type = transport_type;
 
     /* get slurm job id */
     /* this assignment (w/o a malloc) should be ok since buff is a const char* */
@@ -211,7 +210,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     }
     else {
         init_data.job_id = calloc(2, 1);
-        strcpy(init_data.job_id, " ");
+        strcpy(init_data.job_id, "0");
     }
 
     /* determine and save the amount of mem required for everything in the struct*/
@@ -245,46 +244,44 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
     strcat(init_data.header_data, TS_JSON_KEY);
     strcat(init_data.header_data, "\"");
     /* if we are using syslog, open the log with the user-provided msg_level */
-#if defined USE_SYSLOG
+    if ( transport_type == SYSLOG ) {
 #   if defined DEBUG
         openlog(init_data.appname, LOG_PERROR | LOG_CONS | LOG_PID | LOG_NDELAY, msg_level);
 #   else
 	//setlogmask(LOG_UPTO (LOG_NOTICE));
         openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
 #   endif
-
-#elif defined USE_RABBIT
-
-#elif defined USE_LDMS
-
-#elif defined USE_TCP
-    /* open a socket for later comms */ 
-
-    /* create and verify socket */
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    ret_val = sockfd;
-    if( ret_val < 0 ) {
-        perror("socket creation failed");
-        return ret_val;
+    } else if ( transport_type == TCP ) {
+	/* open a socket for later comms */ 
+	
+	/* create and verify socket */
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	ret_val = sockfd;
+	if( ret_val < 0 ) {
+	    perror("socket creation failed");
+	    pthread_mutex_unlock(&init_mutex);
+	    return ret_val;
+	}
+	
+	bzero(&servaddr, sizeof(servaddr));
+	
+	/* assign IP, PORT */
+	servaddr.sin_family = AF_INET;
+	/* server is always on the local host */
+	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+	servaddr.sin_port = htons(PORT);
+	
+	/* connect the client to the server */
+	ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)); 
+	if( ret_val != 0 ) {
+	    perror("connection to the TCP server failed");
+	    pthread_mutex_unlock(&init_mutex);
+	    return ret_val;
+	}
     }
-
-    bzero(&servaddr, sizeof(servaddr));
-
-    /* assign IP, PORT */
-    servaddr.sin_family = AF_INET;
-    /* server is always on the local host */
-    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    servaddr.sin_port = htons(PORT);
-
-    /* connect the client to the server */
-    ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)); 
-    if( ret_val != 0 ) {
-        perror("connection to the TCP server failed");
-        return ret_val;
-    }
-
-#endif
+    
     daapInit_called = true;
+    pthread_mutex_unlock(&init_mutex);
     return ret_val;
 }
 
@@ -292,14 +289,16 @@ int daapInit(const char *app_name, int msg_level, int agg_val) {
 int daapFinalize(void) {
     // Likely needs to be thread safe
     int ret_val = 0;
+
+    // Close connection if using TCP
+    if (init_data.transport_type == TCP) {
+	close(sockfd);
+    }
+	
     free(init_data.hostname);
     free(init_data.appname);
     free(init_data.job_id);
     free(init_data.header_data);
-    /* other stuff here such as closing the logfile or connection */
-#if defined USE_TCP
-    close(sockfd);
-#endif
 
     return ret_val;
 }

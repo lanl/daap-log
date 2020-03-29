@@ -41,6 +41,12 @@
 # define PARAMS(protos) ()
 #endif
 
+/* Enum for transport types */
+typedef enum transports {
+  NONE,
+  SYSLOG,
+  TCP
+} transport;
 
 /* Struct type for holding a tag (the combination of tag name and tag value)*/
 typedef struct {
@@ -68,6 +74,7 @@ typedef struct {
     int level;
     int agg_val;
     int alloc_size;
+    transport transport_type;
     char *header_data;
 } daap_init_t;
 
@@ -93,7 +100,7 @@ BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
  *   using the function parameters and data specific to the node/job,
  *   like hostname and job_id. */
-int daapInit(const char *app_name, int msg_level, int agg_type);
+int daapInit(const char *app_name, int msg_level, int agg_type, transport transport_type);
 
 /*   Cleans up / depopulates / dallocates (as required) structure vars 
  *   populated by daapInit. */
