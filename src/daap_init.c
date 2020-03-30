@@ -36,14 +36,6 @@
 #        include <syslog.h>
 #    endif
 
-/* TCP includes/struct */
-# include <sys/socket.h>
-# include <arpa/inet.h>
-# define PORT 5555
-
-/* socket struct */
-struct sockaddr_in servaddr;
-int sockfd;
 
 bool daapInit_called = false;
 static pthread_mutex_t gethost_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -251,34 +243,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 	//setlogmask(LOG_UPTO (LOG_NOTICE));
         openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
 #   endif
-    } else if ( transport_type == TCP ) {
-	/* open a socket for later comms */ 
-	
-	/* create and verify socket */
-	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	ret_val = sockfd;
-	if( ret_val < 0 ) {
-	    perror("socket creation failed");
-	    pthread_mutex_unlock(&init_mutex);
-	    return ret_val;
-	}
-	
-	bzero(&servaddr, sizeof(servaddr));
-	
-	/* assign IP, PORT */
-	servaddr.sin_family = AF_INET;
-	/* server is always on the local host */
-	servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-	servaddr.sin_port = htons(PORT);
-	
-	/* connect the client to the server */
-	ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
-        printf("Retval from connect: %d\n", ret_val); 
-	if( ret_val != 0 ) {
-	    perror("connection to the TCP server failed");
-	    pthread_mutex_unlock(&init_mutex);
-	    return ret_val;
-	}
     }
     
     daapInit_called = true;
@@ -290,11 +254,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 int daapFinalize(void) {
     // Likely needs to be thread safe
     int ret_val = 0;
-
-    // Close connection if using TCP
-    if (init_data.transport_type == TCP) {
-	close(sockfd);
-    }
 	
     free(init_data.hostname);
     free(init_data.appname);

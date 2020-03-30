@@ -18,8 +18,6 @@
 # include <sys/socket.h>
 # include <arpa/inet.h>
 # define PORT 5555
-extern struct sockaddr_in servaddr;
-extern int sockfd;
 
 #define NULL_DEVICE "/dev/null"
 

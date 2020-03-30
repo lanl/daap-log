@@ -1,3 +1,4 @@
+
 /* 
  * Data Analytics Application Profiling API
  *
@@ -139,7 +140,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
      * already been populated in init_data struct */
     buff_sz = init_data.alloc_size
                + ts_len + 2 
-	       + msg_len + 2;
+	       + msg_len + 4;
     buff = calloc(buff_sz, 1);
 
     strcpy(buff, init_data.header_data);
@@ -149,6 +150,10 @@ int daapLogWrite(int keyval, const char *message, ...) {
     strcat(buff, "\"");
     strcat(buff, full_message);
     strcat(buff, "\"}");
+    //Fluent bit requires a new line at the end of each message
+    if (init_data.transport_type == TCP) {
+      strcat(buff, "\n");
+    }
 #if defined DEBUG
     printf("complete json string = %s\n",buff);
 #endif
@@ -179,9 +184,8 @@ int daapLogWrite(int keyval, const char *message, ...) {
       SYSLOGGER(init_data.level, message, args);
       va_end(args);
     } else if (init_data.transport_type == TCP) {
-      /* send log message over socket opened with daapInit */
-      count = write(sockfd, buff, buff_sz);
-      printf("Writing to sock: %d, buf: %s, written: %d\n", sockfd, buff, count);
+      count = daapTCPLogWrite(buff, buff_sz);
+      printf("Writing to buf: %s, written: %d\n", buff, count);
     }
 
     free(timestamp_str);

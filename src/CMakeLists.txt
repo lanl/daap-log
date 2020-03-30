@@ -47,6 +47,7 @@ target_sources(daap_log
 	PRIVATE
 	    daap_log.c
 	    daap_init.c
+            daap_tcp.c
 	    daap_metric.c
 	    daap_timestr.c
 	    daap_log.h

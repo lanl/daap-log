@@ -126,4 +126,9 @@ int daapMetricDestroy(metric_t metric);
  * Tivan on the open side at LANL) */
 int daapMetricWrite(metric_t metric);
 
+/* TCP Functions for Writing to a TCP Socket */
+int daapTCPConnect(void);
+int daapTCPClose(int sockfd);
+int daapTCPLogWrite(char *buf, int buf_size);
+
 END_C_DECLS
