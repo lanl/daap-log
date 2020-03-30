@@ -272,7 +272,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 	servaddr.sin_port = htons(PORT);
 	
 	/* connect the client to the server */
-	ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)); 
+	ret_val = connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+        printf("Retval from connect: %d\n", ret_val); 
 	if( ret_val != 0 ) {
 	    perror("connection to the TCP server failed");
 	    pthread_mutex_unlock(&init_mutex);
