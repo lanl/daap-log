@@ -58,20 +58,24 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 // a preprocessor macro to prevent errors if we aren't using syslog. 
 // We might not use this approach. Right now it's not being called.
 static int daapSyslogWrite(int keyval, const char *message, ...) {
-#if defined USE_SYSLOG
     /* needs to be thread safe */
     va_list args;
+
+    if (!init_data.transport_type == SYSLOG) {
+       return 0;
+    }
 //    setlogmask (LOG_UPTO (LOG_INFO));
 #if defined DEBUG
     va_start(args, message);
     vprintf (message, args);
     va_end(args);
 #endif /* DEBUG */
+
     va_start(args, message);
     SYSLOGGER(init_data.level, message, args);
     va_end(args);
     closelog ();
-#endif /* USE_SYSLOG */
+
     return 0;
 }
 
@@ -98,6 +102,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
     char *timestamp_str, *buff, *full_message;
     int ts_len, msg_len, buff_sz, agg_threshold = 0;
     FILE *null_device;
+    int count;
 
     if( !daapInit_called ) {
         errno = EPERM;
@@ -168,21 +173,17 @@ int daapLogWrite(int keyval, const char *message, ...) {
 	}
     }
     */
- 
-#if defined USE_SYSLOG
-    va_start(args, message);
-    SYSLOGGER(init_data.level, message, args);
-    va_end(args);
 
-#elif defined USE_RABBIT
-    
-#elif defined USE_LDMS
+    if (init_data.transport_type == SYSLOG) { 
+      va_start(args, message);
+      SYSLOGGER(init_data.level, message, args);
+      va_end(args);
+    } else if (init_data.transport_type == TCP) {
+      /* send log message over socket opened with daapInit */
+      count = write(sockfd, buff, buff_sz);
+      printf("Writing to sock: %d, buf: %s, written: %d\n", sockfd, buff, count);
+    }
 
-#elif defined USE_TCP
-    /* send log message over socket opened with daapInit */
-    write(sockfd, buff, buff_sz);
-
-#endif
     free(timestamp_str);
     return 0;
 }

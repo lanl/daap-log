@@ -8,24 +8,18 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#if defined USE_SYSLOG
 #    if defined __APPLE__
 #        include <os/log.h>
 #        include <pwd.h>
 #    else
 #        include <syslog.h>
 #    endif
-#elif defined USE_RABBIT
 
-#elif defined USE_LDMS
-
-#elif defined USE_TCP
 # include <sys/socket.h>
 # include <arpa/inet.h>
 # define PORT 5555
 extern struct sockaddr_in servaddr;
 extern int sockfd;
-#endif
 
 #define NULL_DEVICE "/dev/null"
 
