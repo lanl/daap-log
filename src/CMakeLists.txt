@@ -53,17 +53,6 @@ target_sources(daap_log
 	    daap_log.h
 )
 
-
-if ("${TRANSPORT_LAYER}" STREQUAL "syslog")
-	target_compile_definitions(daap_log PRIVATE -DUSE_SYSLOG)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "LDMS")
-	target_compile_definitions(daap_log PRIVATE -DUSE_LDMS)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "RabbitMQ")
-	target_compile_definitions(daap_log PRIVATE -DUSE_RABBIT)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "TCP")
-	target_compile_definitions(daap_log PRIVATE -DUSE_TCP)
-endif()
-
 target_include_directories(daap_log 
 			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 			)
