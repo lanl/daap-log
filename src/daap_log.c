@@ -152,7 +152,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
     strcat(buff, "\"}");
     //Fluent bit requires a new line at the end of each message
     if (init_data.transport_type == TCP) {
-      strcat(buff, "\n");
+      strcat(buff, "\n\n");
     }
 #if defined DEBUG
     printf("complete json string = %s\n",buff);
@@ -185,7 +185,6 @@ int daapLogWrite(int keyval, const char *message, ...) {
       va_end(args);
     } else if (init_data.transport_type == TCP) {
       count = daapTCPLogWrite(buff, buff_sz);
-      printf("Writing to buf: %s, written: %d\n", buff, count);
     }
 
     free(timestamp_str);
