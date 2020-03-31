@@ -185,7 +185,6 @@ int daapLogWrite(int keyval, const char *message, ...) {
       va_end(args);
     } else if (init_data.transport_type == TCP) {
       count = daapTCPLogWrite(buff, buff_sz);
-      printf("Writing to buf: %s, written: %d\n", buff, count);
     }
 
     free(timestamp_str);

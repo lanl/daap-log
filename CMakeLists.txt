@@ -18,10 +18,6 @@ set(VERSION_MINOR 1)
 set(VERSION_PATCH 0)
 project(daap_log VERSION ${VERSION_MAJOR}.${VERSION_MINOR})
 
-# make syslog the default transport layer and provide help text
-set(TRANSPORT_LAYER syslog CACHE STRING "Choose transport layer (syslog, LDMS Streams, RabbitMQ, TCP (FluentBit))")
-set_property(CACHE TRANSPORT_LAYER PROPERTY STRINGS syslog LDMS RabbitMQ TCP)
-
 set(LIBRARY_TYPE Shared CACHE STRING "Choose type of library built (Shared, Static)")
 set_property(CACHE LIBRARY_TYPE PROPERTY STRINGS Shared Static)
 

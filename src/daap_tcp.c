@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #include <errno.h>
 #include <strings.h>
@@ -50,7 +51,6 @@ int daapTCPLogWrite(char *buf, int buf_size) {
     //Retry up to 5 times
     while (retries < 5) {
 	sockfd = daapTCPConnect();
-	printf("Sockfd: %d\n", sockfd);
 	if (sockfd < 0) {
 	    retries++;
 	}
