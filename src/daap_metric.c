@@ -82,19 +82,11 @@
 
 #include "daap_log.h"
 
-#if defined USE_SYSLOG
-#    if defined __APPLE__
-#        include <os/log.h>
-#        include <pwd.h>
-#    else
-#        include <syslog.h>
-#    endif
-#elif defined USE_RABBIT
-
-#elif defined USE_LDMS
-
-#elif defined USE_TCP
-
+#if defined __APPLE__
+#include <os/log.h>
+#include <pwd.h>
+#else
+#include <syslog.h>
 #endif
 
 #include <stdio.h>
@@ -177,16 +169,7 @@ int daapMetricWrite(metric_t metric) {
 
     // else call the appropriate api (depending on macro def) to do the write
 
-#if defined USE_SYSLOG
-
-#elif defined USE_RABBIT
-
-#elif defined USE_LDMS
-
-#elif defined USE_TCP
     // send record over our already-opened socket
-
-#endif
 
     return ret_val;
 }
