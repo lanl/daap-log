@@ -8,11 +8,11 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-Requires CMake, version >= 3.16.3: 
+Requires CMake, version >= 3.16.2: 
 
 ```
 $ ccmake --version
-cmake version 3.16.3
+cmake version 3.16.2
 
 CMake suite maintained and supported by Kitware (kitware.com/cmake).
 ```
