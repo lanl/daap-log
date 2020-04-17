@@ -1,5 +1,5 @@
 #Top-level CMakeLists.txt for daap_log project
-cmake_minimum_required(VERSION 3.16.3)
+cmake_minimum_required(VERSION 3.16.2)
 
 # set options for Build types
 if (NOT CMAKE_CONFIGURATION_TYPES )

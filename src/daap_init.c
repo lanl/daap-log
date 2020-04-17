@@ -40,6 +40,7 @@
 bool daapInit_called = false;
 static pthread_mutex_t gethost_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t finalize_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #if defined __APPLE__ 
 #    define SYSLOGGER(level, args...) os_log(level, args)
@@ -58,6 +59,9 @@ static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 #endif
 
 #define NUM_TRIES_FOR_NULL_HOSTNAME 8
+
+#define STRDUPNULLOK(string)               \
+   (string != NULL ? strdup(string) : '\0')
 
 static char daap_hostname[LOCAL_MAXHOSTNAMELEN];
 
@@ -168,41 +172,144 @@ static int daap_gethostname(char **hostname) {
 
 /* Initializer for library. */
 int daapInit(const char *app_name, int msg_level, int agg_val, transport transport_type) {
-    // Might need to be thread safe. What happens if two openmp
-    // threads enter this at the same time when we are using a global
-    // struct to hold the initialized data?
+    /* Assume this needs to be thread safe.
+     * All data at present in daapInit structs is specific to a process,
+     * not a thread, so only populate struct once per MPI task (thread group).
+     */
+    if( daapInit_called ) {
+        return DAAP_SUCCESS;
+    }
     pthread_mutex_lock(&init_mutex);
 
     int ret_val = 0;
-    const char *buff;
-
-    /* allocate memory for and populate init_data.hostname with the 
-     * hostname by calling daap_gethostname().*/
-    ret_val = daap_gethostname(&init_data.hostname);
-    if( ret_val != 0 ) {
-        // set errno?
-        perror("error in call to gethostname, daapInit failed");
-	pthread_mutex_unlock(&init_mutex);
-        return ret_val;
-    }
-    /*printf("ret_val = %d, Hostname = %s\n", ret_val, init_data.hostname);*/
+    size_t envvar_len = 0;
 
     /* note that app_name is a user-provided value rather than 
      * using the command line value */
-    init_data.appname = calloc(strlen(app_name), 1);
+    init_data.appname = calloc(strlen(app_name) + 1, 1);
     strcpy(init_data.appname, app_name);
     init_data.agg_val = agg_val;
     init_data.transport_type = transport_type;
 
-    /* get slurm job id */
-    /* this assignment (w/o a malloc) should be ok since buff is a const char* */
-    if( (buff = getenv("SLURM_JOB_ID")) != NULL ) {
-        init_data.job_id = calloc(strlen(buff), 1);
-        strcpy(init_data.job_id, buff);
+    /* get user */ 
+    if( getenv("USER") != NULL  ) {
+        init_data.user = strdup(getenv("USER"));
     }
     else {
-        init_data.job_id = calloc(2, 1);
-        strcpy(init_data.job_id, "0");
+        init_data.user = calloc(1, 1);
+    }
+
+    if( getenv("SLURMD_NODENAME") != NULL  ) {
+        init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
+    }
+    else {
+        /* allocate memory for and populate init_data.hostname with the 
+         * hostname by calling daap_gethostname().*/
+        ret_val = daap_gethostname(&init_data.hostname);
+        if( ret_val != DAAP_SUCCESS ) {
+            // set errno?
+            perror("error in call to gethostname, daapInit failed");
+            pthread_mutex_unlock(&init_mutex);
+            return ret_val;
+	}
+    }
+    /* get slurm job id */
+    /* this assignment (w/o a malloc) should be ok since buff is a const char* */
+    if( getenv("SLURM_JOB_ID") != NULL  ) {
+        init_data.job_id = strdup(getenv("SLURM_JOB_ID"));
+    }
+    else {
+        init_data.job_id = calloc(1, 1);
+    }
+    /* get slurm job name */ 
+    if( getenv("SLURM_JOB_NAME") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_JOB_NAME"));
+        init_data.job_name = calloc(envvar_len + 1, 1);
+        strcpy(init_data.job_name, getenv("SLURM_JOB_NAME"));
+    }
+    else {
+        init_data.job_name = calloc(1, 1);
+    }
+    /* get cluster name */ 
+    if( getenv("SLURM_CLUSTER_NAME") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_CLUSTER_NAME"));
+        init_data.cluster_name = calloc(envvar_len + 1, 1);
+        strcpy(init_data.cluster_name, getenv("SLURM_CLUSTER_NAME"));
+    }
+    else {
+        init_data.cluster_name = calloc(1, 1);
+    }
+    /* get cpus on node */ 
+    if( getenv("SLURM_CPUS_ON_NODE") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_CPUS_ON_NODE"));
+        init_data.cpus_on_node = calloc(envvar_len + 1, 1);
+        strcpy(init_data.cpus_on_node, getenv("SLURM_CPUS_ON_NODE"));
+    }
+    else {
+        init_data.cpus_on_node = calloc(1, 1);
+    }
+    /* get cpus per task (only populated if --cpus-per-task used w/slurm) */ 
+    if( getenv("SLURM_CPUS_PER_TASK") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_CPUS_PER_TASK"));
+        init_data.cpus_per_task = calloc(envvar_len + 1, 1);
+        strcpy(init_data.cpus_per_task, getenv("SLURM_CPUS_PER_TASK"));
+    }
+    else {
+        init_data.cpus_per_task = calloc(1, 1);
+    }
+    /* get number of nodes in job allocation */
+    if( getenv("SLURM_JOB_NODES") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_JOB_NODES"));
+        init_data.job_nodes = calloc(envvar_len + 1, 1);
+        strcpy(init_data.job_nodes, getenv("SLURM_JOB_NODES"));
+    }
+    else {
+        init_data.job_nodes = calloc(1, 1);
+    }
+    /* get node list for job */ 
+    if( getenv("SLURM_JOB_NODELIST") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_JOB_NODELIST"));
+        init_data.job_nodelist = calloc(envvar_len + 1, 1);
+        strcpy(init_data.job_nodelist, getenv("SLURM_JOB_NODELIST"));
+    }
+    else {
+        init_data.job_nodelist = calloc(1, 1);
+    }
+    /* get number of tasks for job */
+    if( getenv("SLURM_NTASKS") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_NTASKS"));
+        init_data.ntasks = calloc(envvar_len + 1, 1);
+        strcpy(init_data.ntasks, getenv("SLURM_NTASKS"));
+    }
+    else {
+        init_data.ntasks = calloc(1, 1);
+    }
+    /* get MPI rank of this task (SLURM_PROCID == rank) */
+    if( getenv("SLURM_PROCID") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_PROCID"));
+        init_data.mpi_rank = calloc(envvar_len + 1, 1);
+        strcpy(init_data.mpi_rank, getenv("SLURM_PROCID"));
+    }
+    else {
+        init_data.mpi_rank = calloc(1, 1);
+    }
+    /* get process ID of the task */
+    if( getenv("SLURM_TASK_PID") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_TASK_PID"));
+        init_data.task_pid = calloc(envvar_len + 1, 1);
+        strcpy(init_data.task_pid, getenv("SLURM_TASK_PID"));
+    }
+    else {
+        init_data.task_pid = calloc(1, 1);
+    }
+    /* get slurm tasks per node */
+    if( getenv("SLURM_TASKS_PER_NODE") != NULL  ) {
+        envvar_len = strlen(getenv("SLURM_TASKS_PER_NODE"));
+        init_data.tasks_per_node = calloc(envvar_len + 1, 1);
+        strcpy(init_data.tasks_per_node, getenv("SLURM_TASKS_PER_NODE"));
+    }
+    else {
+        init_data.tasks_per_node = calloc(1, 1);
     }
 
     /* determine and save the amount of mem required for everything in the struct*/
@@ -210,10 +317,32 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
                  strlen(DAAP_JSON_KEY_VAL) + 2
 	       + strlen(APP_JSON_KEY) + 2
 	       + strlen(init_data.appname) + 2
+	       + strlen(USER_JSON_KEY) + 2
+	       + strlen(init_data.user) + 2
 	       + strlen(HOST_JSON_KEY) + 2
                + strlen(init_data.hostname) + 2 
 	       + strlen(JOB_ID_JSON_KEY) + 2
 	       + strlen(init_data.job_id) + 2
+	       + strlen(JOB_NAME_JSON_KEY) + 2
+	       + strlen(init_data.job_name) + 2
+	       + strlen(CLUSTER_NAME_JSON_KEY) + 2
+	       + strlen(init_data.cluster_name) + 2
+	       + strlen(CPUS_ON_NODE_JSON_KEY) + 2
+	       + strlen(init_data.cpus_on_node) + 2
+	       + strlen(CPUS_PER_TASK_JSON_KEY) + 2
+	       + strlen(init_data.cpus_per_task) + 2
+	       + strlen(JOB_NODES_JSON_KEY) + 2
+	       + strlen(init_data.job_nodes) + 2
+	       + strlen(JOB_NODELIST_JSON_KEY) + 2
+	       + strlen(init_data.job_nodelist) + 2
+	       + strlen(NTASKS_JSON_KEY) + 2
+	       + strlen(init_data.ntasks) + 2
+	       + strlen(MPI_RANK_JSON_KEY) + 2
+	       + strlen(init_data.mpi_rank) + 2
+	       + strlen(TASK_PID_JSON_KEY) + 2
+	       + strlen(init_data.task_pid) + 2
+	       + strlen(TASKS_PER_NODE_JSON_KEY) + 2
+	       + strlen(init_data.tasks_per_node) + 2
 	       + strlen(TS_JSON_KEY) + 2
 	       + strlen(MSG_JSON_KEY) + 2;
     /* build the first part of the output json string (the part that won't change
@@ -225,6 +354,10 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     strcat(init_data.header_data, "\"");
     strcat(init_data.header_data, init_data.appname);
     strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, USER_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.user);
+    strcat(init_data.header_data, "\",");
     strcat(init_data.header_data, HOST_JSON_KEY);
     strcat(init_data.header_data, "\"");
     strcat(init_data.header_data, init_data.hostname);
@@ -232,6 +365,46 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     strcat(init_data.header_data, JOB_ID_JSON_KEY);
     strcat(init_data.header_data, "\"");
     strcat(init_data.header_data, init_data.job_id);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, JOB_NAME_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.job_name);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, CLUSTER_NAME_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.cluster_name);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, CPUS_ON_NODE_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.cpus_on_node);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, CPUS_PER_TASK_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.cpus_per_task);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, JOB_NODES_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.job_nodes);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, JOB_NODELIST_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.job_nodelist);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, NTASKS_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.ntasks);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, MPI_RANK_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.mpi_rank);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, TASK_PID_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.task_pid);
+    strcat(init_data.header_data, "\",");
+    strcat(init_data.header_data, TASKS_PER_NODE_JSON_KEY);
+    strcat(init_data.header_data, "\"");
+    strcat(init_data.header_data, init_data.tasks_per_node);
     strcat(init_data.header_data, "\",");
     strcat(init_data.header_data, TS_JSON_KEY);
     strcat(init_data.header_data, "\"");
@@ -252,13 +425,25 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 
 /* Free memory from allocated components of init_data */
 int daapFinalize(void) {
-    // Likely needs to be thread safe
-    int ret_val = 0;
-	
-    free(init_data.hostname);
+
+    pthread_mutex_lock(&finalize_mutex);
+
     free(init_data.appname);
+    free(init_data.user);
+    free(init_data.hostname);
     free(init_data.job_id);
+    free(init_data.job_name);
+    free(init_data.cluster_name);
+    free(init_data.cpus_on_node);
+    free(init_data.cpus_per_task);
+    free(init_data.job_nodes);
+    free(init_data.job_nodelist);
+    free(init_data.ntasks);
+    free(init_data.mpi_rank);
+    free(init_data.task_pid);
+    free(init_data.tasks_per_node);
     free(init_data.header_data);
 
-    return ret_val;
+    pthread_mutex_unlock(&finalize_mutex);
+    return DAAP_SUCCESS;
 }

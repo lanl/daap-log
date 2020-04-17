@@ -58,8 +58,7 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 // This function doesn't buy us much since it has to be wrapped in
 // a preprocessor macro to prevent errors if we aren't using syslog. 
 // We might not use this approach. Right now it's not being called.
-static int daapSyslogWrite(int keyval, const char *message, ...) {
-    /* needs to be thread safe */
+/* static int daapSyslogWrite(const char *message, ...) {
     va_list args;
 
     if (!init_data.transport_type == SYSLOG) {
@@ -70,7 +69,7 @@ static int daapSyslogWrite(int keyval, const char *message, ...) {
     va_start(args, message);
     vprintf (message, args);
     va_end(args);
-#endif /* DEBUG */
+#endif 
 
     va_start(args, message);
     SYSLOGGER(init_data.level, message, args);
@@ -79,6 +78,7 @@ static int daapSyslogWrite(int keyval, const char *message, ...) {
 
     return 0;
 }
+*/
 
 /* Function to write out a message to a log (followed by escape/control args),
  * which will then make its way to an off-cluster data analytics system (Tivan
@@ -94,7 +94,7 @@ static int daapSyslogWrite(int keyval, const char *message, ...) {
  *   vulnerabilities/attacks as printf() and is not intended to be used by
  *   untrusted callers.
  */
-int daapLogWrite(int keyval, const char *message, ...) {
+int daapLogWrite(const char *message, ...) {
     /* probably needs to be thread safe; or at least, callees 
      * must be thread safe */
     va_list args;
