@@ -1,4 +1,5 @@
 
+
 /* 
  * Data Analytics Application Profiling API
  *
@@ -123,6 +124,11 @@ int daapLogWrite(int keyval, const char *message, ...) {
     fclose(null_device);
     va_end(args);
 
+    if (msg_len > DAAP_MAX_MSG_LEN) {
+        fprintf(stderr, "message length is longer than DAAP_MAX_MSG_LEN: %d\n", DAAP_MAX_MSG_LEN);
+        return DAAP_ERROR;
+    }
+
     va_start(args, message);
     full_message = calloc(msg_len + 1, 1);
     vsprintf(full_message, message, args);
@@ -145,14 +151,14 @@ int daapLogWrite(int keyval, const char *message, ...) {
 
     strcpy(buff, init_data.header_data);
     strcat(buff, timestamp_str);
-    strcat(buff, "\",");
+    strcat(buff, ",");
     strcat(buff, MSG_JSON_KEY);
     strcat(buff, "\"");
     strcat(buff, full_message);
     strcat(buff, "\"}");
-    //Fluent bit requires a new line at the end of each message
+    //A new line at the end of each message
     if (init_data.transport_type == TCP) {
-      strcat(buff, "\n");
+      strcat(buff, "\0");
     }
 #if defined DEBUG
     printf("complete json string = %s\n",buff);
@@ -184,7 +190,7 @@ int daapLogWrite(int keyval, const char *message, ...) {
       SYSLOGGER(init_data.level, message, args);
       va_end(args);
     } else if (init_data.transport_type == TCP) {
-      count = daapTCPLogWrite(buff, buff_sz);
+      count = daapTCPLogWrite(buff, strlen(buff));
       printf("Writing to buf: %s, written: %d\n", buff, count);
     }
 

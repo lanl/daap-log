@@ -1,3 +1,4 @@
+
 /* 
  * Data Analytics Application Profiling API
  *
@@ -167,7 +168,8 @@ static int daap_gethostname(char **hostname) {
 }
 
 /* Initializer for library. */
-int daapInit(const char *app_name, int msg_level, int agg_val, transport transport_type) {
+int daapInit(const char *app_name, int msg_level, int agg_val, 
+	     transport transport_type) {
     // Might need to be thread safe. What happens if two openmp
     // threads enter this at the same time when we are using a global
     // struct to hold the initialized data?
@@ -234,7 +236,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     strcat(init_data.header_data, init_data.job_id);
     strcat(init_data.header_data, "\",");
     strcat(init_data.header_data, TS_JSON_KEY);
-    strcat(init_data.header_data, "\"");
+//    strcat(init_data.header_data, "\"");
     /* if we are using syslog, open the log with the user-provided msg_level */
     if ( transport_type == SYSLOG ) {
 #   if defined DEBUG
@@ -243,10 +245,18 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 	//setlogmask(LOG_UPTO (LOG_NOTICE));
         openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
 #   endif
+    } else if (transport_type == TCP ) {
+	ret_val = daapTCPConnect();
     }
     
     daapInit_called = true;
     pthread_mutex_unlock(&init_mutex);
+
+    if (ret_val < 0) {
+	perror("Fatal error");
+	exit(1);
+    }
+
     return ret_val;
 }
 
@@ -254,7 +264,11 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 int daapFinalize(void) {
     // Likely needs to be thread safe
     int ret_val = 0;
-	
+
+    if (init_data.transport_type == TCP) {
+      daapTCPClose();
+    }
+
     free(init_data.hostname);
     free(init_data.appname);
     free(init_data.job_id);

@@ -96,6 +96,8 @@ typedef struct {
 #define DAAP_AGG_HIGH   1000
 #define DAAP_AGG_SUPER 10000
 
+#define DAAP_MAX_MSG_LEN 8096
+
 BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
  *   using the function parameters and data specific to the node/job,
@@ -128,7 +130,6 @@ int daapMetricWrite(metric_t metric);
 
 /* TCP Functions for Writing to a TCP Socket */
 int daapTCPConnect(void);
-int daapTCPClose(int sockfd);
+int daapTCPClose();
 int daapTCPLogWrite(char *buf, int buf_size);
-
 END_C_DECLS

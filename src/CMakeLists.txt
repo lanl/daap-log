@@ -32,6 +32,16 @@ if("${isSystemDir}" STREQUAL "-1")
 endif("${isSystemDir}" STREQUAL "-1")
 ### END SETTINGS FOR RPATH ###
 
+find_package(OpenSSL REQUIRED)
+message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+include_directories(${OPENSSL_INCLUDE_DIR})
+target_link_libraries(daap_log OpenSSL::Crypto)
+target_link_libraries(daap_log OpenSSL::SSL)
+
+install(TARGETS daap_log DESTINATION lib)
+install(FILES daap_log.h DESTINATION include)
+
 if (BUILD_TEST)
 #  list(APPEND EXTRA_LIBS test)
 #  list(APPEND EXTRA_INCLUDES "${PROJECT_SOURCE_DIR}/test")
@@ -54,20 +64,7 @@ target_sources(daap_log
 )
 
 
-if ("${TRANSPORT_LAYER}" STREQUAL "syslog")
-	target_compile_definitions(daap_log PRIVATE -DUSE_SYSLOG)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "LDMS")
-	target_compile_definitions(daap_log PRIVATE -DUSE_LDMS)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "RabbitMQ")
-	target_compile_definitions(daap_log PRIVATE -DUSE_RABBIT)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "TCP")
-	target_compile_definitions(daap_log PRIVATE -DUSE_TCP)
-endif()
-
 target_include_directories(daap_log 
 			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 			)
-
-install(TARGETS daap_log DESTINATION lib)
-install(FILES daap_log.h DESTINATION include)
 
