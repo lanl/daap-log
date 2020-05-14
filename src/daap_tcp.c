@@ -1,6 +1,8 @@
+
 #include <stdio.h>
 #include <errno.h>
 #include <strings.h>
+#include <unistd.h>
 
 /* TCP includes/struct */
 # include <sys/socket.h>

@@ -63,7 +63,6 @@ target_sources(daap_log
 	    daap_log.h
 )
 
-
 target_include_directories(daap_log 
 			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 			)

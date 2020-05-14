@@ -12,13 +12,11 @@
  */
 
 #include <pthread.h>
-
+#include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
 
-/* BEGIN_C_DECLS should be used at the beginning of your declarations,
-   so that C++ compilers don't mangle their names.  Use END_C_DECLS at
-   the end of C declarations. */
+/* BEGIN_C_DECLS is used to prevent C++ compilers from mangling names. */
 #undef BEGIN_C_DECLS
 #undef END_C_DECLS
 #ifdef __cplusplus
@@ -69,8 +67,19 @@ typedef struct {
 /* Struct for holding initialization data */
 typedef struct {
     char *appname;
+    char *user;
     char *hostname;
     char *job_id;
+    char *job_name;
+    char *cluster_name;
+    char *cpus_on_node;
+    char *cpus_per_task;
+    char *job_nodes; /* number of nodes in job allocation */
+    char *job_nodelist; /* slurm-format node list for job */
+    char *ntasks; /* number of tasks */
+    char *mpi_rank;
+    char *task_pid;
+    char *tasks_per_node;
     int level;
     int agg_val;
     int alloc_size;
@@ -80,8 +89,19 @@ typedef struct {
 
 #define DAAP_JSON_KEY_VAL "\"source\":\"daap_log\","
 #define APP_JSON_KEY "\"appname\":"
+#define USER_JSON_KEY "\"user\":"
 #define HOST_JSON_KEY "\"hostname\":"
 #define JOB_ID_JSON_KEY "\"job_id\":"
+#define JOB_NAME_JSON_KEY "\"job_name\":"
+#define CLUSTER_NAME_JSON_KEY "\"cluster_name\":"
+#define CPUS_ON_NODE_JSON_KEY "\"cpus_on_node\":"
+#define CPUS_PER_TASK_JSON_KEY "\"cpus_per_task\":"
+#define JOB_NODES_JSON_KEY "\"job_nodes\":"
+#define JOB_NODELIST_JSON_KEY "\"job_nodelist\":"
+#define NTASKS_JSON_KEY "\"ntasks\":"
+#define MPI_RANK_JSON_KEY "\"mpi_rank\":"
+#define TASK_PID_JSON_KEY "\"task_pid\":"
+#define TASKS_PER_NODE_JSON_KEY "\"tasks_per_node\":"
 #define TS_JSON_KEY "\"timestamp\":"
 #define MSG_JSON_KEY "\"message\":"
 
@@ -112,7 +132,7 @@ int daapFinalize(void);
  * compute node. This entry will be transported off-cluster to the data 
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
  * called prior to invoking daapLogWrite. */
-int daapLogWrite(int keyval, const char *message, ...);
+int daapLogWrite(const char *message, ...);
 
 /* Initializes the combination of a named metric and a number of named tags
  *   (up to 10). Values for the metric and tags are then specified in each
