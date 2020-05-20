@@ -23,6 +23,7 @@
 
 extern bool daapInit_called;
 
+extern unsigned long getmillisectime();
 extern int getmillisectime_as_str(char **time_str);
 
 /* struct initialized by daapInit(),finalized in daapFinalize(), 

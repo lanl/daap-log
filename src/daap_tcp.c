@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <strings.h>
 #include <unistd.h>
+#include <pthread.h>
 
 /* TCP includes/struct */
 # include <sys/socket.h>
@@ -21,14 +22,15 @@
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
+static pthread_mutex_t write_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 SSL *cSSL = NULL;
 int sockfd = -1;
 
 void daapInitializeSSL() {
-  OpenSSL_add_ssl_algorithms();
   SSL_load_error_strings();
- // SSL_library_init();
-//  OpenSSL_add_all_algorithms();
+  SSL_library_init();
+  OpenSSL_add_all_algorithms();
 }
 
 void daapDestroySSL() {
@@ -49,16 +51,26 @@ int daapTCPClose() {
 }
 
 int daapTCPLogWrite(char *buf, int buf_size) {
-    int count = 0;
+    int count = 0, total_count = 0;
     int retries = 0;
 
+    pthread_mutex_lock(&write_mutex);
+    daapTCPConnect();
     /* send log message over socket*/
-    count = SSL_write(cSSL, buf, buf_size);
-    CHK_SSL(count);
-    if (count < 0) {
-      return -1;
+    while (total_count != buf_size) {
+        count = SSL_write(cSSL, buf+count, buf_size-count);
+        CHK_SSL(count);
+        if (count < 0) {
+            printf("ssl write count is: %d\n", count);
+            count = -1;
+            break;
+        }
+
+        total_count += count;
     }
 
+    daapTCPClose();
+    pthread_mutex_unlock(&write_mutex);
     return count;
 }
 
@@ -68,9 +80,6 @@ int daapTCPConnect(void) {
   int ret_val = 0;
   int ssl_err = 0;
   SSL_CTX *sslctx;
-  X509 *server_cert;
-  char *str;
-  char buf [4096];
 
   daapInitializeSSL();
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -109,28 +118,6 @@ int daapTCPConnect(void) {
       return -1;    
   }
 
-  printf ("SSL connection using %s\n", SSL_get_cipher (cSSL));
-
-  /* Get server's certificate (note: beware of dynamic allocation) - opt */
-
-  server_cert = SSL_get_peer_certificate (cSSL);
-  CHK_NULL(server_cert);
-  printf ("Server certificate:\n");
-  
-  str = X509_NAME_oneline (X509_get_subject_name (server_cert),0,0);
-  CHK_NULL(str);
-  printf ("\t subject: %s\n", str);
-  OPENSSL_free (str);
-
-  str = X509_NAME_oneline (X509_get_issuer_name  (server_cert),0,0);
-  CHK_NULL(str);
-  printf ("\t issuer: %s\n", str);
-  OPENSSL_free (str);
-
-  /* We could do all sorts of certificate verification stuff here before
- *      deallocating the certificate. */
-
-  X509_free (server_cert);
   return 0;
 }
 

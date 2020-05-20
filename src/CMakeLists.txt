@@ -61,6 +61,8 @@ target_sources(daap_log
 	    daap_metric.c
 	    daap_timestr.c
 	    daap_log.h
+            cJSON.c
+            cJSON.h
 )
 
 target_include_directories(daap_log 

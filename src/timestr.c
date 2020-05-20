@@ -4,20 +4,22 @@
  * present time.
  */
 
-#ifndef _POSIX_C_SOURCE
-#   define _POSIX_C_SOURCE 200112L
-#endif
-
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "timestr.h"
 
-#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-#   define USE_SNPRINTF 1
-#else   
-#   define USE_SNPRINTF 0
-#endif
+unsigned long getmillisectime() {
+    struct timeval timestruct;
+    unsigned long timestamp_millisec = 0;
+
+    gettimeofday(&timestruct, NULL);
+    timestamp_millisec = (unsigned long)timestruct.tv_sec * 1000 
+                         + (unsigned long)timestruct.tv_usec / 1000;
+    return timestamp_millisec;
+}
+
 
 int getmillisectime_as_str(char **time_str) {
     struct timeval timestruct;
@@ -26,7 +28,6 @@ int getmillisectime_as_str(char **time_str) {
     gettimeofday(&timestruct, NULL);
     timestamp_millisec = (unsigned long)timestruct.tv_sec * 1000 
                          + (unsigned long)timestruct.tv_usec / 1000;
-    //timestamp_sec = (unsigned long)timestruct.tv_sec;
 
 #if USE_SNPRINTF
     /* First, use snprintf to get the length before actually 

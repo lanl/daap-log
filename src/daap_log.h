@@ -1,3 +1,4 @@
+
 /* 
  * Data Analytics Application Profiling API
  *
@@ -72,38 +73,38 @@ typedef struct {
     char *job_id;
     char *job_name;
     char *cluster_name;
-    char *cpus_on_node;
+    int cpus_on_node;
     char *cpus_per_task;
     char *job_nodes; /* number of nodes in job allocation */
     char *job_nodelist; /* slurm-format node list for job */
-    char *ntasks; /* number of tasks */
-    char *mpi_rank;
-    char *task_pid;
+    int ntasks; /* number of tasks */
+    int mpi_rank;
+    int task_pid;
     char *tasks_per_node;
     int level;
     int agg_val;
     int alloc_size;
     transport transport_type;
-    char *header_data;
 } daap_init_t;
 
-#define DAAP_JSON_KEY_VAL "\"source\":\"daap_log\","
-#define APP_JSON_KEY "\"appname\":"
-#define USER_JSON_KEY "\"user\":"
-#define HOST_JSON_KEY "\"hostname\":"
-#define JOB_ID_JSON_KEY "\"job_id\":"
-#define JOB_NAME_JSON_KEY "\"job_name\":"
-#define CLUSTER_NAME_JSON_KEY "\"cluster_name\":"
-#define CPUS_ON_NODE_JSON_KEY "\"cpus_on_node\":"
-#define CPUS_PER_TASK_JSON_KEY "\"cpus_per_task\":"
-#define JOB_NODES_JSON_KEY "\"job_nodes\":"
-#define JOB_NODELIST_JSON_KEY "\"job_nodelist\":"
-#define NTASKS_JSON_KEY "\"ntasks\":"
-#define MPI_RANK_JSON_KEY "\"mpi_rank\":"
-#define TASK_PID_JSON_KEY "\"task_pid\":"
-#define TASKS_PER_NODE_JSON_KEY "\"tasks_per_node\":"
-#define TS_JSON_KEY "\"timestamp\":"
-#define MSG_JSON_KEY "\"message\":"
+#define DAAP_JSON_KEY "source"
+#define DAAP_JSON_VAL "daap_log"
+#define APP_JSON_KEY  "appname"
+#define USER_JSON_KEY "user"
+#define HOST_JSON_KEY "hostname"
+#define JOB_ID_JSON_KEY "job_id"
+#define JOB_NAME_JSON_KEY "job_name"
+#define CLUSTER_NAME_JSON_KEY "cluster_name"
+#define CPUS_ON_NODE_JSON_KEY "cpus_on_node"
+#define CPUS_PER_TASK_JSON_KEY "cpus_per_task"
+#define JOB_NODES_JSON_KEY "job_nodes"
+#define JOB_NODELIST_JSON_KEY "job_nodelist"
+#define NTASKS_JSON_KEY "ntasks"
+#define MPI_RANK_JSON_KEY "mpi_rank"
+#define TASK_PID_JSON_KEY "task_pid"
+#define TASKS_PER_NODE_JSON_KEY "tasks_per_node"
+#define TS_JSON_KEY "timestamp"
+#define MSG_JSON_KEY "message"
 
 #define DAAP_SUCCESS 0
 #define DAAP_ERROR  -1
@@ -147,6 +148,9 @@ int daapMetricDestroy(metric_t metric);
  * analytics cluster for insertion into a timeseries database (OpenTSDB on
  * Tivan on the open side at LANL) */
 int daapMetricWrite(metric_t metric);
+
+/* Builds a json object */
+char *daapBuildJSON(long timestamp, char *message);
 
 /* TCP Functions for Writing to a TCP Socket */
 int daapTCPConnect(void);

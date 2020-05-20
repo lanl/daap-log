@@ -18,6 +18,15 @@
 #else   
 #   define USE_SNPRINTF 0
 #endif
+unsigned long getmillisectime() {
+    struct timeval timestruct;
+    unsigned long timestamp_millisec = 0;
+    //char *time_str = *buf;
+    gettimeofday(&timestruct, NULL);
+    timestamp_millisec = (unsigned long)timestruct.tv_sec * 1000 
+                         + (unsigned long)timestruct.tv_usec / 1000;
+    return timestamp_millisec;
+}
 
 int getmillisectime_as_str(char **time_str) {
     struct timeval timestruct;
