@@ -11,7 +11,7 @@ set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug or Re
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES} )
 
 # make ../ the default install prefix and provide help text for ccmake
-set(CMAKE_INSTALL_PREFIX .. CACHE PATH "Install path prefix, prepended onto install directories.")
+set(CMAKE_INSTALL_PREFIX $ENV{HOME} CACHE PATH "Install path prefix, prepended onto install directories.")
 
 set(VERSION_MAJOR 0)
 set(VERSION_MINOR 1)

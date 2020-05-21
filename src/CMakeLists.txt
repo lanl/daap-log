@@ -48,7 +48,7 @@ if (BUILD_TEST)
    # add the executable
    add_executable(test_logger test_logger.c)
    target_link_libraries(test_logger daap_log)
-   install(TARGETS test_logger DESTINATION test)
+   install(TARGETS test_logger DESTINATION bin)
 endif()
 
 
