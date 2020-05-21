@@ -9,7 +9,7 @@
 #SBATCH --time=01:00:00      # Walltime in hh:mm:ss or d-hh:mm:ss
 
 function launch_telegraf {
-    BASE="/users/hng"
+    BASE="$HOME"
     TELEGRAF_BASE="$BASE/telegraf"
     TELEGRAF_EXEC="$TELEGRAF_BASE/telegraf"
     SLURM_HOSTS=`/usr/bin/scontrol show hostname "$SLURM_JOB_NODELIST" | tr '\n' "," | sed -e 's/,$//'`
