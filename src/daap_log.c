@@ -119,14 +119,18 @@ int daapLogWrite(const char *message, ...) {
     null_device = fopen(NULL_DEVICE, "w");
     msg_len = vfprintf(null_device, message, args);
     fclose(null_device);
+    va_end(args);
 #if defined DEBUG
+    va_start(args, message);
     vprintf (message, args);
+    va_end(args);
 #endif
     if (msg_len > DAAP_MAX_MSG_LEN) {
         fprintf(stderr, "message length is longer than DAAP_MAX_MSG_LEN: %d\n", DAAP_MAX_MSG_LEN);
         msg_len = DAAP_MAX_MSG_LEN;
     } 
 
+    va_start(args, message);
     full_message = calloc(msg_len + 1, 1);
     vsprintf(full_message, message, args);
     va_end(args);
