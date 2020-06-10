@@ -61,8 +61,8 @@ int daapTCPLogWrite(char *buf, int buf_size) {
     pthread_mutex_lock(&write_mutex);
     ret = daapTCPConnect();
     if (ret < 0) {
-        return -1;
         pthread_mutex_unlock(&write_mutex);
+        return -1;
     }
     /* send log message over socket*/
     while (total_count != buf_size) {

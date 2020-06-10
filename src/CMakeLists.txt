@@ -52,6 +52,10 @@ if (BUILD_TEST)
 endif()
 
 
+add_executable(stdout_parser stdout_parser.c)
+target_link_libraries(stdout_parser daap_log)
+install(TARGETS stdout_parser DESTINATION bin)
+
 configure_file(daap_logConfig.h.in daap_logConfig.h)
 target_sources(daap_log
 	PRIVATE
