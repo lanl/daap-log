@@ -65,7 +65,7 @@ launch_telegraf
 module load openmpi/2.1.2
 
 #Run the job
-sleep 20 && srun /users/hng/ior-daap/src/ior -t 1m -b 1g -o /lustre/scratch3/yellow/hng/testFile -i 10
+sleep 20 && srun $HOME/ior-daap/src/ior -t 1m -b 1g -o /lustre/scratch3/yellow/$USER/testFile -i 10
 sleep 60
 rm -f ${TELEGRAF_BASE}/telegraf-client-*.conf
 kill_telegraf
