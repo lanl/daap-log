@@ -42,6 +42,10 @@ target_link_libraries(daap_log OpenSSL::SSL)
 install(TARGETS daap_log DESTINATION lib)
 install(FILES daap_log.h DESTINATION include)
 
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    target_compile_definitions(daap_log PRIVATE -DDEBUG)
+endif()
+
 if (BUILD_TEST)
 #  list(APPEND EXTRA_LIBS test)
 #  list(APPEND EXTRA_INCLUDES "${PROJECT_SOURCE_DIR}/test")
@@ -50,7 +54,6 @@ if (BUILD_TEST)
    target_link_libraries(test_logger daap_log)
    install(TARGETS test_logger DESTINATION bin)
 endif()
-
 
 add_executable(stdout_parser stdout_parser.c)
 target_link_libraries(stdout_parser daap_log)

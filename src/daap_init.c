@@ -1,5 +1,3 @@
-
-
 /* 
  * Data Analytics Application Profiling API
  *
@@ -19,53 +17,17 @@
  *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
  * Original author: Charles Shereda, cpshereda@lanl.gov
+ * Additional authors: Hugh Greenberg, hng@lanl.gov
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-
 #include "daap_log.h"
-/* Syslog includes */
-#    if defined __APPLE__
-#        include <os/log.h>
-#        include <pwd.h>
-#    else
-#        include <syslog.h>
-#    endif
-
+#include "daap_log_internal.h"
 
 bool daapInit_called = false;
-static pthread_mutex_t gethost_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t finalize_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#if defined __APPLE__ 
-#    define SYSLOGGER(level, args...) os_log(level, args)
-#else
-#    define SYSLOGGER(level, args...) vsyslog(level, args)
-#endif
-
-#define LOCAL_MAXHOSTNAMELEN 257
-
-#ifndef HOST_NAME_MAX
-#define HOST_NAME_MAX 256
-#endif
-
-#if (HOST_NAME_MAX > LOCAL_MAXHOSTNAMELEN)
-#define LOCAL_MAXHOSTNAMELEN HOST_NAME_MAX
-#endif
-
 #define NUM_TRIES_FOR_NULL_HOSTNAME 8
-
-#define STRDUPNULLOK(string)               \
-   (string != NULL ? strdup(string) : '\0')
-
-static char daap_hostname[LOCAL_MAXHOSTNAMELEN];
 
 /* global declaration of daap_init_t struct init_data, initialized by daapInit(),
  * finalized in daapFinalize(), and accessed by the *Write() functions. */
@@ -74,21 +36,18 @@ daap_init_t init_data;
 /*
  * This gethostname wrapper does not populate the full-length hostname in
  * those rare cases where it is too long for the buffer. It does, however,
- * guarantee a null-terminated hostname is place in daap_hostname, even if it's
+ * guarantee a null-terminated hostname, even if it's
  * truncated. It also tries again in the case where gethostname returns an
  * error because the buffer is initially too short.
+ * Note: only call from thread-safe regions).
  */
 static int daap_gethostname(char **hostname) {
 
     size_t count, length = LOCAL_MAXHOSTNAMELEN;
     int ret_val, num_tries = 0;
 
-    /* thread safe */
-    pthread_mutex_lock(&gethost_mutex);
-
     char *buf = calloc(length, 1);
     if( buf == NULL ) {
-        pthread_mutex_unlock(&gethost_mutex);
         return DAAP_ERROR_OUT_OF_MEMORY;
     }
 
@@ -114,7 +73,6 @@ static int daap_gethostname(char **hostname) {
                  * caller.
                  */
                 *hostname = buf;
-                pthread_mutex_unlock(&gethost_mutex);
                 return DAAP_SUCCESS;
             }
             /*
@@ -133,7 +91,6 @@ static int daap_gethostname(char **hostname) {
              */
             else if( !(count == 0 || count == length - 1) ) {
                 free(buf);
-                pthread_mutex_unlock(&gethost_mutex);
                 return DAAP_ERROR;
             }
         }
@@ -149,7 +106,6 @@ static int daap_gethostname(char **hostname) {
          */
         else if( !(errno == EINVAL || errno == ENAMETOOLONG) ) {
             free(buf);
-            pthread_mutex_unlock(&gethost_mutex);
             return DAAP_ERROR_IN_ERRNO;
         }
 
@@ -160,7 +116,6 @@ static int daap_gethostname(char **hostname) {
         length *= 2;
         buf = realloc(buf, length);
         if( buf == NULL ) {
-            pthread_mutex_unlock(&gethost_mutex);
             return DAAP_ERROR_OUT_OF_MEMORY;
         }
     } /* end while */
@@ -168,7 +123,6 @@ static int daap_gethostname(char **hostname) {
     /* If we got here, it means that we tried too many times and are
      * giving up. */
     free(buf);
-    pthread_mutex_unlock(&gethost_mutex);
     return DAAP_ERROR;
 }
 
@@ -183,7 +137,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         pthread_mutex_unlock(&init_mutex);
         return DAAP_SUCCESS;
     }
-
+    DEBUG_OUTPUT(("Debug output"));
+    PRINT_OUTPUT(stdout, ("Print output"));
     int ret_val = 0;
     size_t envvar_len = 0;
 
@@ -216,6 +171,9 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
             return ret_val;
 	}
     }
+    /* set daap_hostname[] for purposes of printing output (not part of API) */
+    strncpy(daap_hostname, init_data.hostname, LOCAL_MAXHOSTNAMELEN);
+    daap_hostname[LOCAL_MAXHOSTNAMELEN - 1] = '\0';
     /* get slurm job id */
     /* this assignment (w/o a malloc) should be ok since buff is a const char* */
     if( getenv("SLURM_JOB_ID") != NULL  ) {

@@ -1,4 +1,3 @@
-
 /* 
  * Data Analytics Application Profiling API
  *
@@ -9,6 +8,7 @@
  *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
  * Original author: Charles Shereda, cpshereda@lanl.gov
+ * Additional authors: Hugh Greenberg, hng@lanl.gov
  *
  */
 
@@ -86,6 +86,10 @@ typedef struct {
     int alloc_size;
     transport transport_type;
 } daap_init_t;
+
+/* struct initialized by daapInit(),finalized in daapFinalize(), 
+ * and accessed by the *Write() functions. */
+extern daap_init_t init_data;
 
 #define DAAP_JSON_KEY "source"
 #define DAAP_JSON_VAL "daap_log"

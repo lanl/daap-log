@@ -1,10 +1,16 @@
-
-
+/* DAAP TCP functions with SSL capability
+ *
+ * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
+ * Original author: Hugh Greenberg, hng@lanl.gov
+ * Additional authors: Charles Shereda, cpshereda@lanl.gov
+ */
 #include <stdio.h>
 #include <errno.h>
 #include <strings.h>
 #include <unistd.h>
 #include <pthread.h>
+
+#include "daap_log.h"
 
 /* TCP includes/struct */
 # include <sys/socket.h>
@@ -19,8 +25,8 @@
 
 #define PORT 5555
 
-#define CHK_NULL(x) if ((x)==NULL) exit (1)
-#define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
+//#define CHK_NULL(x) if ((x)==NULL) exit (1)
+//#define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
 #define SSL_CLIENT_CERT "/daap_certs/client_cert.pem"
@@ -42,6 +48,8 @@ void daapDestroySSL() {
 }
 
 void daapShutdownSSL() {
+  // One SSL_shutdown sends close_notify alert, other receives response from peer
+  SSL_shutdown(cSSL);
   SSL_shutdown(cSSL);
   SSL_free(cSSL);
 }
@@ -62,18 +70,19 @@ int daapTCPLogWrite(char *buf, int buf_size) {
     ret = daapTCPConnect();
     if (ret < 0) {
         pthread_mutex_unlock(&write_mutex);
-        return -1;
+        return DAAP_ERROR;
     }
+    ERR_clear_error();
     /* send log message over socket*/
     while (total_count != buf_size) {
         count = SSL_write(cSSL, buf+count, buf_size-count);
+        //err = SSL_get_error(ssl_connection, count);
         CHK_SSL(count);
         if (count < 0) {
             printf("ssl write count is: %d\n", count);
             count = -1;
             break;
         }
-
         total_count += count;
     }
 

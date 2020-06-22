@@ -25,13 +25,13 @@ int main( int argc, char *argv[] ) {
     while (( options = getopt(argc, argv, "ts")) != -1) {
       switch(options) {
       case 't':
-	transport_type = TCP;
-	break;
+          transport_type = TCP;
+	      break;
       case 's':
-	transport_type = SYSLOG;
-	break;
+          transport_type = SYSLOG;
+          break;
       default:
-	usage();
+          usage();
       }
     }
 

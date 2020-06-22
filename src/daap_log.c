@@ -40,8 +40,8 @@
 
 #include <string.h>
 
-#include "daap_log.h"
 #include "daap_log_internal.h"
+#include "daap_log.h"
 #include "cJSON.h"
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -82,7 +82,6 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
     return 0;
 }
 */
-
 /* Function to write out a message to a log (followed by escape/control args),
  * which will then make its way to an off-cluster data analytics system (Tivan
  * on the turquoise network at LANL).
@@ -97,60 +96,93 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
  *   vulnerabilities/attacks as printf() and is not intended to be used by
  *   untrusted callers.
  */
+/*
+char *pmix_test_output_prepare(const char *fmt, ... )
+{
+    static char output[OUTPUT_MAX];
+    va_list args;
+    va_start( args, fmt );
+    memset(output, 0, sizeof(output));
+    vsnprintf(output, OUTPUT_MAX - 1, fmt, args);
+    va_end(args);
+    return output;
+}
+*/
+/*
+char *deformat(const char *format_str, ...)
+{
+    static char output_str[PRINT_MAX];
+    va_list args;
+    va_start(args, *format_str);
+    memset(output_str, 0, sizeof(output_str));
+    vsnprintf(output_str, PRINT_MAX - 1, format_str, args);
+    va_end(args);
+    return output_str;
+}
+*/
+
 int daapLogWrite(const char *message, ...) {
     /* probably needs to be thread safe; or at least, callees 
      * must be thread safe */
     va_list args;
-    char *json_str, *full_message;
-    unsigned long timestamp;
+    char *json_str;
+    char full_message[DAAP_MAX_MSG_LEN+1];
+    unsigned long tstamp;
     int agg_threshold = 0;
     FILE *null_device;
     int count, msg_len;
+    static bool first_time_in_write = true;
 
-    if( !daapInit_called ) {
+    if (!daapInit_called) {
         errno = EPERM;
         perror("Initialize with daapInit() before calling daapLogWrite()");
         return DAAP_ERROR;
     }
 
     /* don't have easy way of determining length of full message
-     * apart from this hack */
+     * apart from this hack. */
     va_start(args, message);
     null_device = fopen(NULL_DEVICE, "w");
     msg_len = vfprintf(null_device, message, args);
     fclose(null_device);
     va_end(args);
+/*
 #if defined DEBUG
+  
+    static char output_str[PRINT_MAX];
+    output_str[0] = '\0';
     va_start(args, message);
-    vprintf (message, args);
+    vsnprintf(output_str, PRINT_MAX - 1, message, args);
     va_end(args);
+    output_str[PRINT_MAX-2] = '\n';
+    fprintf(stdout, "deformat() string: ");
+    fprintf(stdout, deformat(output_str));
+    fprintf(stdout, "\n");
+
 #endif
+*/
+    //DEBUG_OUTPUT((message, args));
     if (msg_len > DAAP_MAX_MSG_LEN) {
-        fprintf(stderr, "message length is longer than DAAP_MAX_MSG_LEN: %d\n", DAAP_MAX_MSG_LEN);
+        ERROR_OUTPUT(("Message is longer than DAAP_MAX_MSG_LEN: %d; truncating.", DAAP_MAX_MSG_LEN));
         msg_len = DAAP_MAX_MSG_LEN;
     } 
 
     va_start(args, message);
-    full_message = calloc(msg_len + 1, 1);
-    vsprintf(full_message, message, args);
+    vsnprintf(full_message, msg_len, message, args);
     va_end(args);
+    DEBUG_OUTPUT((full_message));
 
-    timestamp = getmillisectime();
-#if defined DEBUG
-    printf("timestamp = %lu\n", timestamp);
-#endif
-    // do some sanity checking on the data
+    tstamp = getmillisectime();
+    // do some sanity checking on the data here?
 
     /* create JSON output from the data that's been passed in plus what's
      * already been populated in init_data struct */
-    json_str = daapBuildJSON(getmillisectime(), full_message);
+    json_str = daapBuildJSON(tstamp, full_message);
     if (json_str == NULL) {
-	goto end;
+	    goto end;
     }
 
-#if defined DEBUG
-    printf("complete json string = %s\n",json_str);
-#endif
+    DEBUG_OUTPUT(("Complete json string: %s",json_str));
 
     // if we are aggregating, just put the data in an internal buffer
     // and increment our aggregator until our threshold is reached;
@@ -176,11 +208,9 @@ int daapLogWrite(const char *message, ...) {
       SYSLOGGER(init_data.level, full_message, args);
     } else if (init_data.transport_type == TCP) {
       count = daapTCPLogWrite(json_str, strlen(json_str));
-      printf("Writing message: %s, written: %d\n", json_str, count);
+      DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
     }
-    
     free(json_str);
-    free(full_message);
 
  end:
     return 0;
@@ -329,7 +359,7 @@ char *daapBuildJSON(long timestamp, char *message) {
     cJSON_AddItemToObject(data, MSG_JSON_KEY, message_val);
     string = cJSON_PrintUnformatted(data);
     if (string == NULL) {
-	fprintf(stderr, "Failed to convert json object to string.\n");
+	ERROR_OUTPUT(("Failed to convert json object to string.\n"));
     }
 
  end:
