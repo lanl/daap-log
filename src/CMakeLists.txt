@@ -32,41 +32,47 @@ if("${isSystemDir}" STREQUAL "-1")
 endif("${isSystemDir}" STREQUAL "-1")
 ### END SETTINGS FOR RPATH ###
 
+find_package(OpenSSL REQUIRED)
+message("OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+message("OpenSSL libraries: ${OPENSSL_LIBRARIES}")
+include_directories(${OPENSSL_INCLUDE_DIR})
+target_link_libraries(daap_log OpenSSL::Crypto)
+target_link_libraries(daap_log OpenSSL::SSL)
+
+install(TARGETS daap_log DESTINATION lib)
+install(FILES daap_log.h DESTINATION include)
+
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    target_compile_definitions(daap_log PRIVATE -DDEBUG)
+endif()
+
 if (BUILD_TEST)
 #  list(APPEND EXTRA_LIBS test)
 #  list(APPEND EXTRA_INCLUDES "${PROJECT_SOURCE_DIR}/test")
    # add the executable
    add_executable(test_logger test_logger.c)
    target_link_libraries(test_logger daap_log)
-   install(TARGETS test_logger DESTINATION test)
+   install(TARGETS test_logger DESTINATION bin)
 endif()
 
+add_executable(stdout_parser stdout_parser.c)
+target_link_libraries(stdout_parser daap_log)
+install(TARGETS stdout_parser DESTINATION bin)
 
 configure_file(daap_logConfig.h.in daap_logConfig.h)
 target_sources(daap_log
 	PRIVATE
 	    daap_log.c
 	    daap_init.c
+            daap_tcp.c
 	    daap_metric.c
 	    daap_timestr.c
 	    daap_log.h
+            cJSON.c
+            cJSON.h
 )
-
-
-if ("${TRANSPORT_LAYER}" STREQUAL "syslog")
-	target_compile_definitions(daap_log PRIVATE -DUSE_SYSLOG)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "LDMS")
-	target_compile_definitions(daap_log PRIVATE -DUSE_LDMS)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "RabbitMQ")
-	target_compile_definitions(daap_log PRIVATE -DUSE_RABBIT)
-elseif ("${TRANSPORT_LAYER}" STREQUAL "TCP")
-	target_compile_definitions(daap_log PRIVATE -DUSE_TCP)
-endif()
 
 target_include_directories(daap_log 
 			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 			)
-
-install(TARGETS daap_log DESTINATION lib)
-install(FILES daap_log.h DESTINATION include)
 

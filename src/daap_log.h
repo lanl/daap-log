@@ -8,17 +8,16 @@
  *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
  * Original author: Charles Shereda, cpshereda@lanl.gov
+ * Additional authors: Hugh Greenberg, hng@lanl.gov
  *
  */
 
 #include <pthread.h>
-
+#include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
 
-/* BEGIN_C_DECLS should be used at the beginning of your declarations,
-   so that C++ compilers don't mangle their names.  Use END_C_DECLS at
-   the end of C declarations. */
+/* BEGIN_C_DECLS is used to prevent C++ compilers from mangling names. */
 #undef BEGIN_C_DECLS
 #undef END_C_DECLS
 #ifdef __cplusplus
@@ -69,21 +68,47 @@ typedef struct {
 /* Struct for holding initialization data */
 typedef struct {
     char *appname;
+    char *user;
     char *hostname;
     char *job_id;
+    char *job_name;
+    char *cluster_name;
+    int cpus_on_node;
+    char *cpus_per_task;
+    char *job_nodes; /* number of nodes in job allocation */
+    char *job_nodelist; /* slurm-format node list for job */
+    int ntasks; /* number of tasks */
+    int mpi_rank;
+    int task_pid;
+    char *tasks_per_node;
     int level;
     int agg_val;
     int alloc_size;
     transport transport_type;
-    char *header_data;
 } daap_init_t;
 
-#define DAAP_JSON_KEY_VAL "\"source\":\"daap_log\","
-#define APP_JSON_KEY "\"appname\":"
-#define HOST_JSON_KEY "\"hostname\":"
-#define JOB_ID_JSON_KEY "\"job_id\":"
-#define TS_JSON_KEY "\"timestamp\":"
-#define MSG_JSON_KEY "\"message\":"
+/* struct initialized by daapInit(),finalized in daapFinalize(), 
+ * and accessed by the *Write() functions. */
+extern daap_init_t init_data;
+
+#define DAAP_JSON_KEY "source"
+#define DAAP_JSON_VAL "daap_log"
+#define APP_JSON_KEY  "appname"
+#define USER_JSON_KEY "user"
+#define HOST_JSON_KEY "hostname"
+#define JOB_ID_JSON_KEY "job_id"
+#define JOB_NAME_JSON_KEY "job_name"
+#define CLUSTER_NAME_JSON_KEY "cluster_name"
+#define CPUS_ON_NODE_JSON_KEY "cpus_on_node"
+#define CPUS_PER_TASK_JSON_KEY "cpus_per_task"
+#define JOB_NODES_JSON_KEY "job_nodes"
+#define JOB_NODELIST_JSON_KEY "job_nodelist"
+#define NTASKS_JSON_KEY "ntasks"
+#define MPI_RANK_JSON_KEY "mpi_rank"
+#define TASK_PID_JSON_KEY "task_pid"
+#define TASKS_PER_NODE_JSON_KEY "tasks_per_node"
+#define TS_JSON_KEY "timestamp"
+#define MSG_JSON_KEY "message"
 
 #define DAAP_SUCCESS 0
 #define DAAP_ERROR  -1
@@ -95,6 +120,8 @@ typedef struct {
 #define DAAP_AGG_MED     100
 #define DAAP_AGG_HIGH   1000
 #define DAAP_AGG_SUPER 10000
+
+#define DAAP_MAX_MSG_LEN 8096
 
 BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
@@ -110,7 +137,7 @@ int daapFinalize(void);
  * compute node. This entry will be transported off-cluster to the data 
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
  * called prior to invoking daapLogWrite. */
-int daapLogWrite(int keyval, const char *message, ...);
+int daapLogWrite(const char *message, ...);
 
 /* Initializes the combination of a named metric and a number of named tags
  *   (up to 10). Values for the metric and tags are then specified in each
@@ -126,4 +153,11 @@ int daapMetricDestroy(metric_t metric);
  * Tivan on the open side at LANL) */
 int daapMetricWrite(metric_t metric);
 
+/* Builds a json object */
+char *daapBuildJSON(long timestamp, char *message);
+
+/* TCP Functions for Writing to a TCP Socket */
+int daapTCPConnect(void);
+int daapTCPClose();
+int daapTCPLogWrite(char *buf, int buf_size);
 END_C_DECLS

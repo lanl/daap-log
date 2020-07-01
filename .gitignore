@@ -1,1 +1,6 @@
 cruft/
+include/
+lib/
+test/
+src/*.bak
+src/*.swp

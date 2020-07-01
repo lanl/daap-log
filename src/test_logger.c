@@ -17,7 +17,7 @@ void usage() {
 
 int main( int argc, char *argv[] ) {
     int log_level = LOG_NOTICE;
-    int key_value = 0, ret_val = 0;
+    int ret_val = -1;
     transport transport_type = NONE;
     uid_t uid = getuid();
     int options = 0;
@@ -25,13 +25,13 @@ int main( int argc, char *argv[] ) {
     while (( options = getopt(argc, argv, "ts")) != -1) {
       switch(options) {
       case 't':
-	transport_type = TCP;
-	break;
+          transport_type = TCP;
+	      break;
       case 's':
-	transport_type = SYSLOG;
-	break;
+          transport_type = SYSLOG;
+          break;
       default:
-	usage();
+          usage();
       }
     }
 
@@ -43,11 +43,11 @@ int main( int argc, char *argv[] ) {
         return ret_val;
     }
 
-    ret_val = daapLogWrite(key_value, "daapLogWrite logging correctly, %n user id = %d.", &uid, uid);
+    ret_val = daapLogWrite("daapLogWrite logging correctly, %n user id = %d.", &uid, uid);
     if( ret_val != 0 ) {
         perror("Error in call to daapLogWrite");
     }
-//    daapLogWrite(key_value, "%08x %08x %08x %08x %08x\n");
+
     daapFinalize();
     return 0;
 }
