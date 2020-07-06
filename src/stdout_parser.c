@@ -11,6 +11,8 @@
 
 #define LINE_LEN 512
 
+int parseResults(char *template_file, char *results_file);
+
 void usage() {
     printf(
 "./stdout_parser (-s || -t) -m -f\n\

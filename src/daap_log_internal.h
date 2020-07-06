@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 /* Syslog includes */
 #    if defined __APPLE__
@@ -29,6 +30,10 @@
 #    define SYSLOGGER(level, args...) os_log(level, args)
 #else
 #    define SYSLOGGER(level, args...) vsyslog(level, args)
+#endif
+
+#ifndef DEBUG
+#    define DEBUG 0
 #endif
 
 extern bool daapInit_called;

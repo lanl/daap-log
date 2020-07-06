@@ -11,10 +11,7 @@
 #include <pthread.h>
 
 #include "daap_log.h"
-
-/* TCP includes/struct */
-# include <sys/socket.h>
-# include <arpa/inet.h>
+#include "daap_log_internal.h"
 
 /* SSL includes */
 #include <openssl/crypto.h>

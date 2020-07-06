@@ -1,7 +1,3 @@
-
-
-
-
 /* 
  * Data Analytics Application Profiling API
  *
@@ -146,22 +142,7 @@ int daapLogWrite(const char *message, ...) {
     msg_len = vfprintf(null_device, message, args);
     fclose(null_device);
     va_end(args);
-/*
-#if defined DEBUG
-  
-    static char output_str[PRINT_MAX];
-    output_str[0] = '\0';
-    va_start(args, message);
-    vsnprintf(output_str, PRINT_MAX - 1, message, args);
-    va_end(args);
-    output_str[PRINT_MAX-2] = '\n';
-    fprintf(stdout, "deformat() string: ");
-    fprintf(stdout, deformat(output_str));
-    fprintf(stdout, "\n");
 
-#endif
-*/
-    //DEBUG_OUTPUT((message, args));
     if (msg_len > DAAP_MAX_MSG_LEN) {
         ERROR_OUTPUT(("Message is longer than DAAP_MAX_MSG_LEN: %d; truncating.", DAAP_MAX_MSG_LEN));
         msg_len = DAAP_MAX_MSG_LEN;
