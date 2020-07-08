@@ -32,6 +32,7 @@
  *****************
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
  * Original author: Charles Shereda, cpshereda@lanl.gov
+ * Additional authors: Hugh Greenberg, hng@lanl.gov
  */
 
 #include <string.h>
@@ -54,30 +55,6 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 #   define USE_SNPRINTF 0
 #endif
 
-// This function doesn't buy us much since it has to be wrapped in
-// a preprocessor macro to prevent errors if we aren't using syslog. 
-// We might not use this approach. Right now it's not being called.
-/* static int daapSyslogWrite(const char *message, ...) {
-    va_list args;
-
-    if (!init_data.transport_type == SYSLOG) {
-       return 0;
-    }
-//    setlogmask (LOG_UPTO (LOG_INFO));
-#if defined DEBUG
-    va_start(args, message);
-    vprintf (message, args);
-    va_end(args);
-#endif 
-
-    va_start(args, message);
-    SYSLOGGER(init_data.level, message, args);
-    va_end(args);
-    closelog ();
-
-    return 0;
-}
-*/
 /* Function to write out a message to a log (followed by escape/control args),
  * which will then make its way to an off-cluster data analytics system (Tivan
  * on the turquoise network at LANL).
@@ -92,31 +69,6 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
  *   vulnerabilities/attacks as printf() and is not intended to be used by
  *   untrusted callers.
  */
-/*
-char *pmix_test_output_prepare(const char *fmt, ... )
-{
-    static char output[OUTPUT_MAX];
-    va_list args;
-    va_start( args, fmt );
-    memset(output, 0, sizeof(output));
-    vsnprintf(output, OUTPUT_MAX - 1, fmt, args);
-    va_end(args);
-    return output;
-}
-*/
-/*
-char *deformat(const char *format_str, ...)
-{
-    static char output_str[PRINT_MAX];
-    va_list args;
-    va_start(args, *format_str);
-    memset(output_str, 0, sizeof(output_str));
-    vsnprintf(output_str, PRINT_MAX - 1, format_str, args);
-    va_end(args);
-    return output_str;
-}
-*/
-
 int daapLogWrite(const char *message, ...) {
     /* probably needs to be thread safe; or at least, callees 
      * must be thread safe */
@@ -146,10 +98,10 @@ int daapLogWrite(const char *message, ...) {
     if (msg_len > DAAP_MAX_MSG_LEN) {
         ERROR_OUTPUT(("Message is longer than DAAP_MAX_MSG_LEN: %d; truncating.", DAAP_MAX_MSG_LEN));
         msg_len = DAAP_MAX_MSG_LEN;
-    } 
+    }
 
     va_start(args, message);
-    vsnprintf(full_message, msg_len, message, args);
+    vsnprintf(full_message, msg_len + 1, message, args);
     va_end(args);
     DEBUG_OUTPUT((full_message));
 
@@ -160,7 +112,7 @@ int daapLogWrite(const char *message, ...) {
      * already been populated in init_data struct */
     json_str = daapBuildJSON(tstamp, full_message);
     if (json_str == NULL) {
-	    goto end;
+        goto end;
     }
 
     DEBUG_OUTPUT(("Complete json string: %s",json_str));
@@ -173,23 +125,23 @@ int daapLogWrite(const char *message, ...) {
      * because it has to be FIFO. Commented out for now. *
     if( init_data.agg_val > 0 ) {
         if( agg_threshold < init_data.agg_val ) {
-	    ret_val = push_message_stack(buff);
+            ret_val = push_message_stack(buff);
             agg_threshold++;
-	    return ret_val;
-	}
-	else {
-	    ret_val = transmit_message_stack;
-	    agg_threshold = 0;
-	    return ret_val;
-	}
+            return ret_val;
+        }
+        else {
+            ret_val = transmit_message_stack;
+            agg_threshold = 0;
+            return ret_val;
+        }
     }
     */
 
     if (init_data.transport_type == SYSLOG) { 
-      SYSLOGGER(init_data.level, full_message, args);
+        SYSLOGGER(init_data.level, full_message, args);
     } else if (init_data.transport_type == TCP) {
-      count = daapTCPLogWrite(json_str, strlen(json_str));
-      DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
+        count = daapTCPLogWrite(json_str, strlen(json_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
     }
     free(json_str);
 
@@ -201,10 +153,10 @@ int daapLogWrite(const char *message, ...) {
  * Would provide the ability to read messages that have been written by 
  * the application, **local to the node that is calling the function**. 
  * Will be further developed if demand exists. */
-int daapLogRead(int keyval, int time_interval, int max_rows, char **row_array) {
+int daapLogRead(int key, int time_interval, int max_rows, char **row_array) {
 
     /* fopen the local log; */
-    /* search for keyval and time_interval; */
+    /* search for key and time_interval; */
     /* populate at most max_rows of row_array with results; */
     return 0;
 }
@@ -232,115 +184,115 @@ char *daapBuildJSON(long timestamp, char *message) {
 
 
     if (data == NULL) {
-	goto end;
+        goto end;
     }
 
     /* Build cJSON Object */
     source_val = cJSON_CreateString(DAAP_JSON_VAL);
     if (source_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, DAAP_JSON_KEY, source_val);
     app_val = cJSON_CreateString(init_data.appname);
     if (app_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, APP_JSON_KEY, app_val);
     user_val = cJSON_CreateString(init_data.user);
     if (user_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, USER_JSON_KEY, user_val);
     hostname_val = cJSON_CreateString(init_data.hostname);
     if (hostname_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, HOST_JSON_KEY, hostname_val);
     jobid_val = cJSON_CreateString(init_data.job_id);
     if (jobid_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, JOB_ID_JSON_KEY, jobid_val);
     jobname_val = cJSON_CreateString(init_data.job_name);
     if (jobname_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, JOB_NAME_JSON_KEY, jobname_val);
     clustername_val = cJSON_CreateString(init_data.cluster_name);
     if (jobname_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, CLUSTER_NAME_JSON_KEY, clustername_val);
     cpusonnode_val = cJSON_CreateNumber(init_data.cpus_on_node);
     if (cpusonnode_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, CPUS_ON_NODE_JSON_KEY, cpusonnode_val);
     cpuspertask_val = cJSON_CreateString(init_data.cpus_per_task);
     if (cpuspertask_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, CPUS_PER_TASK_JSON_KEY, cpuspertask_val);
     jobnodes_val = cJSON_CreateString(init_data.job_nodes);
     if (cpuspertask_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, JOB_NODES_JSON_KEY, jobnodes_val);
     jobnodelist_val = cJSON_CreateString(init_data.job_nodelist);
     if (cpuspertask_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, JOB_NODELIST_JSON_KEY, jobnodelist_val);
     ntasks_val = cJSON_CreateNumber(init_data.ntasks);
     if (ntasks_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, NTASKS_JSON_KEY, ntasks_val);
     mpirank_val = cJSON_CreateNumber(init_data.mpi_rank);
     if (mpirank_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, MPI_RANK_JSON_KEY, mpirank_val);
     pid_val = cJSON_CreateNumber(init_data.task_pid);
     if (mpirank_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, TASK_PID_JSON_KEY, pid_val);
     taskspernode_val = cJSON_CreateString(init_data.tasks_per_node);
     if (taskspernode_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, TASKS_PER_NODE_JSON_KEY, taskspernode_val);
     timestamp_val = cJSON_CreateNumber(timestamp);
     if (timestamp_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, TS_JSON_KEY, timestamp_val);
     message_val = cJSON_CreateString(message);
     if (message_val == NULL) {
-	goto end;
+        goto end;
     }
 
     cJSON_AddItemToObject(data, MSG_JSON_KEY, message_val);
     string = cJSON_PrintUnformatted(data);
     if (string == NULL) {
-	ERROR_OUTPUT(("Failed to convert json object to string.\n"));
+        ERROR_OUTPUT(("Failed to convert json object to string.\n"));
     }
 
  end:

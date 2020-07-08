@@ -40,10 +40,10 @@ extern bool daapInit_called;
 
 extern unsigned long getmillisectime();
 extern int getmillisectime_as_str(char **time_str);
-
+/*
 #define STRDUPNULLOK(string)               \
    (string != NULL ? strdup(string) : '\0')
-
+*/
 #define LOCAL_MAXHOSTNAMELEN 257
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX 256
@@ -99,4 +99,5 @@ static pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define ERROR_OUTPUT(x) {       \
     pthread_mutex_lock(&print_mutex); \
     PRINT_OUTPUT(stderr, x);    \
+    pthread_mutex_unlock(&print_mutex); \
 }
