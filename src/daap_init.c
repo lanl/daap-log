@@ -137,8 +137,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         pthread_mutex_unlock(&init_mutex);
         return DAAP_SUCCESS;
     }
-    DEBUG_OUTPUT(("Debug output"));
-    PRINT_OUTPUT(stdout, ("Print output"));
+    //DEBUG_OUTPUT(("Debug output"));
+    //PRINT_OUTPUT(stdout, ("Print output"));
     int ret_val = 0;
     size_t envvar_len = 0;
 
