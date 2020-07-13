@@ -33,13 +33,16 @@ static pthread_mutex_t finalize_mutex = PTHREAD_MUTEX_INITIALIZER;
  * finalized in daapFinalize(), and accessed by the *Write() functions. */
 daap_init_t init_data;
 
+extern int daapInitializeSSL();
+extern void daapShutdownSSL();
+
 /*
  * This gethostname wrapper does not populate the full-length hostname in
  * those rare cases where it is too long for the buffer. It does, however,
- * guarantee a null-terminated hostname, even if it's
- * truncated. It also tries again in the case where gethostname returns an
- * error because the buffer is initially too short.
- * Note: only call from thread-safe regions).
+ * guarantee a null-terminated hostname, even if it's truncated. It also 
+ * tries again in the case where gethostname returns an error because the 
+ * buffer is initially too short.
+ * Note: only call from thread-safe regions.
  */
 static int daap_gethostname(char **hostname) {
 
@@ -169,7 +172,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
             perror("error in call to gethostname, daapInit failed");
             pthread_mutex_unlock(&init_mutex);
             return ret_val;
-	}
+        }
     }
     /* set daap_hostname[] for purposes of printing output (not part of API) */
     strncpy(daap_hostname, init_data.hostname, LOCAL_MAXHOSTNAMELEN);
@@ -236,17 +239,17 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     }
     /* get number of tasks for job */
     if( getenv("SLURM_NTASKS") != NULL  ) {
-	init_data.ntasks = atoi(getenv("SLURM_NTASKS"));
+        init_data.ntasks = atoi(getenv("SLURM_NTASKS"));
     } else {
-	init_data.ntasks = 0;
+        init_data.ntasks = 0;
     }
 
     /* get MPI rank of this task (SLURM_PROCID == rank) */
     if( getenv("SLURM_PROCID") != NULL  ) {
-	init_data.mpi_rank = atoi(getenv("SLURM_PROCID"));
+        init_data.mpi_rank = atoi(getenv("SLURM_PROCID"));
     }
     else {
-	init_data.mpi_rank = 0;
+        init_data.mpi_rank = 0;
     }
 
     /* get process ID of the task */
@@ -268,20 +271,24 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 
     /* if we are using syslog, open the log with the user-provided msg_level */
     if ( transport_type == SYSLOG ) {
-#   if defined DEBUG
-        openlog(init_data.appname, LOG_PERROR | LOG_CONS | LOG_PID | LOG_NDELAY, msg_level);
-#   else
-	//setlogmask(LOG_UPTO (LOG_NOTICE));
-        openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
-#   endif
+#       if defined DEBUG
+            openlog(init_data.appname, LOG_PERROR | LOG_CONS | LOG_PID | LOG_NDELAY, msg_level);
+#       else
+            //setlogmask(LOG_UPTO (LOG_NOTICE));
+            openlog(init_data.appname, LOG_NDELAY | LOG_PID, LOG_USER);
+#       endif
+    }
+    else if ( transport_type == TCP) {
+        daapInitializeSSL();
+
     }
     
     daapInit_called = true;
     pthread_mutex_unlock(&init_mutex);
 
     if (ret_val < 0) {
-	perror("Fatal error");
-	exit(1);
+        perror("Fatal error");
+        exit(1);
     }
 
     return ret_val;
@@ -289,10 +296,11 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 
 /* Free memory from allocated components of init_data */
 int daapFinalize(void) {
-    // Likely needs to be thread safe
-    int ret_val = 0;
 
     pthread_mutex_lock(&finalize_mutex);
+
+    daapShutdownSSL();
+
     free(init_data.hostname);
     free(init_data.appname);
     free(init_data.user);

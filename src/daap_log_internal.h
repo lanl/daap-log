@@ -40,10 +40,7 @@ extern bool daapInit_called;
 
 extern unsigned long getmillisectime();
 extern int getmillisectime_as_str(char **time_str);
-/*
-#define STRDUPNULLOK(string)               \
-   (string != NULL ? strdup(string) : '\0')
-*/
+
 #define LOCAL_MAXHOSTNAMELEN 257
 #ifndef HOST_NAME_MAX
 #define HOST_NAME_MAX 256
@@ -66,7 +63,6 @@ static inline char *deformat(const char *format_str, ... )
     va_list args;
     va_start(args, *format_str);
     output_str[0] = '\0';
-    //memset(output_str, 0, sizeof(output_str));
     vsnprintf(output_str, PRINT_MAX - 1, format_str, args);
     va_end(args);
     return output_str;
