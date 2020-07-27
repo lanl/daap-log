@@ -2,11 +2,18 @@
 
 if ("${LIBRARY_TYPE}" STREQUAL "Shared")
    add_library(daap_log SHARED)
+   add_library(daap_log_empty SHARED)
 else()
    add_library(daap_log STATIC)
+   add_library(daap_log_empty STATIC)
 endif()
 
 set_target_properties(daap_log PROPERTIES 
+				SOVERSION ${VERSION_MAJOR}
+   				VERSION   ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
+)
+
+set_target_properties(daap_log_empty PROPERTIES 
 				SOVERSION ${VERSION_MAJOR}
    				VERSION   ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}
 )
@@ -40,6 +47,7 @@ target_link_libraries(daap_log OpenSSL::Crypto)
 target_link_libraries(daap_log OpenSSL::SSL)
 
 install(TARGETS daap_log DESTINATION lib)
+install(TARGETS daap_log_empty DESTINATION lib)
 install(FILES daap_log.h DESTINATION include)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
@@ -47,8 +55,6 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 endif()
 
 if (BUILD_TEST)
-#  list(APPEND EXTRA_LIBS test)
-#  list(APPEND EXTRA_INCLUDES "${PROJECT_SOURCE_DIR}/test")
    # add the executable
    add_executable(test_logger test_logger.c)
    target_link_libraries(test_logger daap_log)
@@ -62,12 +68,12 @@ install(TARGETS stdout_parser DESTINATION bin)
 configure_file(daap_logConfig.h.in daap_logConfig.h)
 target_sources(daap_log
 	PRIVATE
-	    daap_log.c
-	    daap_init.c
+            daap_log.c
+            daap_init.c
             daap_tcp.c
-	    daap_metric.c
-	    daap_timestr.c
-	    daap_log.h
+            daap_metric.c
+            daap_timestr.c
+            daap_log.h
             cJSON.c
             cJSON.h
 )
@@ -76,3 +82,12 @@ target_include_directories(daap_log
 			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 			)
 
+target_sources(daap_log_empty
+	PRIVATE
+            daap_log_empty.c
+            daap_init_empty.c
+)
+
+target_include_directories(daap_log_empty
+			INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
+			)
