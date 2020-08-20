@@ -9,20 +9,39 @@
 
 #define LINE_LEN 512
 #define MAX_TOKENS 1024
+#define MAX_TABLES 10
+#define MAX_HEADERS 10
+#define MAX_VALS 10
+
 typedef struct {
-    char key[LINE_LEN];
-    char val[LINE_LEN];
-    bool found;
+  char key[LINE_LEN];
+  char val[LINE_LEN];
+  bool found;
 } token_t;
 
-int parseResults(char *template_file, char *results_file);
+typedef struct {
+  char sep[LINE_LEN];
+  char val_sep[LINE_LEN];
+  int num_headers;
+  char header_names[MAX_HEADERS][LINE_LEN];
+  int cols;
+  int key_col;
+  char val_names[MAX_VALS][LINE_LEN];
+  int num_vals;
+} table_t;
+
+int parseResults(char *key_template_file, char *table_template_file, 
+		 char *results_file);
+int parseTableTemplate(char *key_template_file, table_t **tables, 
+		       int *num_tables);
 
 void usage() {
     printf(
 "./stdout_parser (-s || -t) -m -f\n\
    -s: syslog transport \n\
    -t: tcp transport \n\
-   -m: template file \n\
+   -m: key_template file \n\
+   -d: table_template file \n\
    -f: stdout/results file\n\n");
     exit(0);
 }
@@ -32,12 +51,14 @@ int main( int argc, char *argv[] ) {
     int ret_val = -1;
     transport transport_type = NONE;
     int options = 0;
-    char template_file[PATH_MAX];
+    char key_template_file[PATH_MAX];
+    char table_template_file[PATH_MAX];
     char results_file[PATH_MAX];
-    template_file[0] = 0;
+    key_template_file[0] = 0;
+    table_template_file[0] = 0;
     results_file[0] = 0;
 
-    while (( options = getopt(argc, argv, "tsm:f:")) != -1) {
+    while (( options = getopt(argc, argv, "tsm:f:d:")) != -1) {
         switch(options) {
         case 't':
             transport_type = TCP;
@@ -46,7 +67,10 @@ int main( int argc, char *argv[] ) {
             transport_type = SYSLOG;
             break;
         case 'm':
-            snprintf(template_file, PATH_MAX, "%s", optarg);
+            snprintf(key_template_file, PATH_MAX, "%s", optarg);
+            break;
+	case 'd':
+            snprintf(table_template_file, PATH_MAX, "%s", optarg);
             break;
         case 'f':
             snprintf(results_file, PATH_MAX, "%s", optarg);
@@ -56,7 +80,7 @@ int main( int argc, char *argv[] ) {
         }
     }
 
-    if ( transport_type == NONE || template_file[0] == 0 || results_file[0] == 0 ) {
+    if ( transport_type == NONE || key_template_file[0] == 0 || results_file[0] == 0 ) {
         usage();
     }
 
@@ -65,7 +89,7 @@ int main( int argc, char *argv[] ) {
         return ret_val;
     }
 
-    ret_val = parseResults(template_file, results_file);
+    ret_val = parseResults(key_template_file, table_template_file, results_file);
     daapFinalize();
 
     return 0;
@@ -91,102 +115,126 @@ int sendResult(char *key, char *val) {
     return ret_val;
 }
 
-/*
-int validStart(char c) {
-    int ret = 1;
+int parseTableTemplate(char *table_template_file, table_t **tables, 
+		       int *num_tables) {
+  char line[LINE_LEN];
+  char *template_key;
+  int in_table = 0;
+  table_t *table;
+  int tkey_len = 0;
+  FILE *table_template;
+  int line_len = 0;
+  int i;
 
-    if (c == ' ') {
-        ret = 0;
-    } else if (c == '\t') {
-        ret = 0;
-    } else if (c == ':') {
-        ret = 0;
-    } else if (c == '?') {
-        ret = 0;
-    } else if (c == '=') {
-        ret = 0;
+  *num_tables = -1;
+  table_template = fopen(table_template_file, "r");
+  if (!table_template) {
+    ERROR_OUTPUT(("Failed to open table template file: %s", table_template_file));
+    return -1;
+  }
+
+  // build the tables array
+  while(fgets(line, LINE_LEN, table_template) != NULL) {
+    if (line[0] == 0) {
+      continue;
     }
 
-    return ret;
+    line_len = strlen(line);
+    line[line_len - 1] = '\0'; //string newline
+    if (!in_table) {
+      template_key = strstr(line, "===table===");
+      if( template_key != NULL ) {
+	*num_tables++;
+	tables[*num_tables] = calloc(1, sizeof(table_t));
+	in_table = 1;
+      }
+      continue;
+    }
+
+    table = tables[*num_tables];
+    template_key = strstr(line, "table_sep=");
+    if ( template_key != NULL ) {
+      tkey_len = 10;
+      strncpy(table->sep, line+tkey_len, line_len-tkey_len);
+      printf("Line: %s\n", line);
+    }
+    template_key = strstr(line, "header=");
+    if ( template_key != NULL && table->num_headers < MAX_HEADERS) {
+      tkey_len = 7;
+      strncpy(table->header_names[table->num_headers], line+tkey_len, line_len-tkey_len);
+      table->num_headers++;
+    }
+    
+    template_key = strstr(line, "val_name=");
+    if ( template_key != NULL && table->num_vals < MAX_VALS ) {
+      tkey_len = 9;
+      strncpy(table->val_names[table->num_vals], line+tkey_len, line_len-tkey_len);
+      table->num_vals++;
+    }
+
+    template_key = strstr(line, "cols=");
+    if ( template_key != NULL ) {
+      tkey_len = 5;
+      table->cols = atoi(line+tkey_len);
+    }
+
+    template_key = strstr(line, "key_col=");
+    if ( template_key != NULL ) {
+      tkey_len = 8;
+      table->key_col = atoi(line+tkey_len);
+    }
+
+    template_key = strstr(line, "num_vals=");
+    if ( template_key != NULL ) {
+      tkey_len = 9;
+      table->key_col = atoi(line+tkey_len);
+    }
+
+    template_key = strstr(line, "val_sep=");
+    if ( template_key != NULL ) {
+      tkey_len = 8;
+      strncpy(table->val_sep, line+tkey_len, line_len-tkey_len);
+    }
+    
+    if (in_table) {
+      template_key = strstr(line, "===end_table===");
+      if( template_key != NULL ) {
+	in_table = 0;
+      }
+    }
+  }
+
+  printf("sep:%s val_sep:%s num_headers:%d cols:%d key_col:%d num_vals:%d\n", 
+	 tables[0]->sep, tables[0]->val_sep, tables[0]->num_headers, 
+	 tables[0]->cols, tables[0]->key_col, tables[0]->num_vals);
+
+  for (i=0; i < MAX_VALS; i++) {
+    printf("val:%s\n", 
+	   tables[0]->val_names[i]);
+  }
+  fclose(table_template);
+  return 0; 
 }
 
-int validEnd(char c) {
-    int ret = 0;
-
-    if (c == ' ') {
-        ret = 1;
-    } else if (c == '\t') {
-        ret = 1;
-    } else if (c == '\n') {
-        ret = 1;
-    }
-
-    return ret;
-}
-
-char *getVal(char *key, char *results_line) {
-    int i, j;
-    int res_len;
-    int key_len;
-    int val_start;
-    int val_end;
-    int val_len;
-    char *val;
-
-    if (!key || !results_line) {
-        return NULL;
-    }
-
-    key_len = strlen(key);
-    res_len = strlen(results_line);    
-    for (i = 0; i < res_len; i++) {
-        // too many strncmps here; instead try strstr
-        if ((strncmp(key, results_line + i, key_len)) != 0) {
-            continue;	    
-        }
-        val_start = val_end = -1;
-        for (j = i + key_len; j < res_len; j++) {
-            if (val_start == -1 && ((validStart(results_line[j])) == 1)) {
-                val_start = j;
-            }
-            if (val_start != -1 && ((validEnd(results_line[j])) == 1)) {
-                val_end = j-1;
-            }
-        }
-    }
-
-    val_len = -1;
-    if (val_start >= 0 && val_end == -1) {
-        val_len = (res_len - val_start) + 1;
-    } else if (val_start >= 0 && val_end > 0) {
-        val_len = (val_end - val_start) + 1;
-    }
-
-    if (val_len < 0) {
-        return NULL;
-    }
-
-    val = calloc(val_len, sizeof(char));
-    strncpy(val, results_line + val_start, val_len);
-    return val;
-}
-*/
-
-int parseResults(char *template_file, char *results_file) {
-    FILE *template, *results;
+int parseResults(char *key_template_file, char *table_template_file, 
+		 char *results_file) {
+    FILE *key_template, *results;
     char template_buf[LINE_LEN];
     char results_buf[LINE_LEN];
     char converted_buf[LINE_LEN];
     token_t key_val[MAX_TOKENS];
+    table_t **tables;
+    int num_tables;
     char *key, *val, *token;
     int template_len, results_len, num_tokens, tokens_found;
     int i = 0;
+    int ret;
     const char *delimiters = ":*=?\t\n";
     char *word;
 
-    template = fopen(template_file, "r");
-    if (!template) {
-        ERROR_OUTPUT(("Failed to open template file: %s", template_file));
+    key_template = fopen(key_template_file, "r");
+    if (!key_template) {
+        ERROR_OUTPUT(("Failed to open template file: %s", key_template_file));
         return -1;
     }
 
@@ -196,44 +244,19 @@ int parseResults(char *template_file, char *results_file) {
         return -1;
     }
 
-    // instead of this while loop, see below
-/*
-    while(fgets(template_buf, LINE_LEN, template)) {
-        template_len = strlen(template_buf);
-        if (template_len == 0) {
-            continue;
-        }
-
-        key = malloc(template_len);
-        strncpy(key, template_buf, template_len - 1);
-        key[template_len - 1] = '\0';
-        rewind(results);
-        while(fgets(results_buf, LINE_LEN, results)) {
-            results_len = strlen(results_buf);
-            if (results_len == 0) {
-                continue;
-            }
-
-            val = getVal(key, results_buf);
-            if (!val) {
-                continue;
-            } else {
-                sendResult(key, val);
-            }
-
-            free(val);
-        }
-
-    free(key);
+    tables = malloc(sizeof(table_t *) * MAX_TABLES);
+    ret = parseTableTemplate(table_template_file, tables, &num_tables);
+    if (ret < 0) {
+        ERROR_OUTPUT(("Failed to table template file: %s", table_template_file));
+        return -1;
     }
-*/
-    // Replacement for above that should be faster (but take more memory):
+
     // store template file contents in memory;
     // go through each line of results and compare with what's in key array (template file).
     // for now, this only returns the first instance of a match between key and val
 
     // build the key array
-    while(fgets(key_val[i].key, LINE_LEN, template) != NULL) {
+    while(fgets(key_val[i].key, LINE_LEN, key_template) != NULL) {
         if (key_val[i].key[0] == 0) {
             continue;
         }
@@ -293,7 +316,12 @@ int parseResults(char *template_file, char *results_file) {
         }
     } 
 
-    fclose(template);
+    for (i=0; i < num_tables+1; i++) {
+      free(tables[i]);
+    }
+
+    free(tables);
+    fclose(key_template);
     fclose(results);
     return 0;
 }

@@ -92,9 +92,11 @@ void daapDestroySSL() {
 void daapShutdownSSL() {
   SSL_CTX_free(sslctx);
   // One SSL_shutdown sends close_notify alert, other receives response from peer (server)
-  SSL_shutdown(cSSL);
-  SSL_shutdown(cSSL);
-  SSL_free(cSSL);
+  if (cSSL) {
+    SSL_shutdown(cSSL);
+    SSL_shutdown(cSSL);
+    SSL_free(cSSL);
+  }
   // migrated from daapDestroySSL()
   ERR_free_strings();
   EVP_cleanup();
