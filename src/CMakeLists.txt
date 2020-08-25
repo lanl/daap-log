@@ -46,6 +46,9 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 target_link_libraries(daap_log OpenSSL::Crypto)
 target_link_libraries(daap_log OpenSSL::SSL)
 
+include(pcre)
+target_link_libraries(daap_log pcre)
+
 install(TARGETS daap_log DESTINATION lib)
 install(TARGETS daap_log_empty DESTINATION lib)
 install(FILES daap_log.h DESTINATION include)

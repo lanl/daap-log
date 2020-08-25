@@ -3,6 +3,7 @@
  */
 #include <getopt.h>
 #include <linux/limits.h>
+#include <pcre.h>
 
 #include "daap_log.h"
 #include "daap_log_internal.h"
@@ -11,13 +12,10 @@
 #define MAX_TOKENS 1024
 #define MAX_TABLES 10
 #define MAX_HEADERS 10
-#define MAX_VALS 10
-
-typedef struct {
-  char key[LINE_LEN];
-  char val[LINE_LEN];
-  bool found;
-} token_t;
+#define MAX_COLS 10
+#define MAX_VALS 20
+#define OVECCOUNT 30
+#define MAX_KEY_REGEXES 1000
 
 typedef struct {
   char sep[LINE_LEN];
@@ -25,14 +23,16 @@ typedef struct {
   int num_headers;
   char header_names[MAX_HEADERS][LINE_LEN];
   int cols;
-  int key_col;
   char val_names[MAX_VALS][LINE_LEN];
   int num_vals;
+  int headers_found;
 } table_t;
 
 int parseResults(char *key_template_file, char *table_template_file, 
 		 char *results_file);
-int parseTableTemplate(char *key_template_file, table_t **tables, 
+int parseKeyTemplate(char *key_template_file, pcre **key_regexes,
+		     int *num_keys);
+int parseTableTemplate(char *table_template_file, table_t **tables, 
 		       int *num_tables);
 
 void usage() {
@@ -107,12 +107,65 @@ int sendResult(char *key, char *val) {
     res_len = strlen(key) + strlen(val) + 2;
     result = calloc(res_len, sizeof(char));
     snprintf(result, res_len, "%s=%s", key, val); 
+    printf("Sending result: %s\n", result);
     ret_val = daapLogWrite(result);
     if (ret_val != 0) {
         perror("Error in call to daapLogWrite");
     }
     free(result);
     return ret_val;
+}
+
+int parseKeyTemplate(char *key_template_file, pcre **key_regexes, 
+		       int *num_key_regexes) {
+  char line[LINE_LEN];
+  char *regex_key;
+  pcre *key_regex;
+  FILE *key_template;
+  int line_len = 0;
+  int i;
+  const char *error;
+  int erroffset;
+  int ovector[OVECCOUNT];
+  int rc;
+  pcre *re;
+
+  *num_key_regexes = -1;
+  key_template = fopen(key_template_file, "r");
+  if (!key_template) {
+    ERROR_OUTPUT(("Failed to open key template file: %s", key_template_file));
+    return -1;
+  }
+
+  // build the key regexes array
+  while(fgets(line, LINE_LEN, key_template) != NULL) {
+    if (line[0] == 0) {
+      continue;
+    }
+
+    line_len = strlen(line);
+    line[line_len - 1] = '\0'; //remove newline
+    /* based off of: 
+       https://www.ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/regexp/demo/pcredemo.c */
+    re = pcre_compile(line,              /* the pattern */
+		      0,                 /* default options */
+		      &error,            /* for error message */
+		      &erroffset,        /* for error offset */
+		      NULL);             /* use default character tables */
+
+    /* Regex compilation failed */
+    if (re == NULL) {
+      ERROR_OUTPUT(("Failed to compile regex at offset: %d : %s", erroffset, 
+		    error));
+      continue;
+    }
+
+    *num_key_regexes += 1;
+    key_regexes[*num_key_regexes] = re;
+  }
+
+  fclose(key_template);
+  return 0; 
 }
 
 int parseTableTemplate(char *table_template_file, table_t **tables, 
@@ -125,6 +178,7 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
   FILE *table_template;
   int line_len = 0;
   int i;
+  int vals_found = 0;
 
   *num_tables = -1;
   table_template = fopen(table_template_file, "r");
@@ -144,7 +198,7 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
     if (!in_table) {
       template_key = strstr(line, "===table===");
       if( template_key != NULL ) {
-	*num_tables++;
+	*num_tables += 1;
 	tables[*num_tables] = calloc(1, sizeof(table_t));
 	in_table = 1;
       }
@@ -156,7 +210,6 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
     if ( template_key != NULL ) {
       tkey_len = 10;
       strncpy(table->sep, line+tkey_len, line_len-tkey_len);
-      printf("Line: %s\n", line);
     }
     template_key = strstr(line, "header=");
     if ( template_key != NULL && table->num_headers < MAX_HEADERS) {
@@ -166,10 +219,10 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
     }
     
     template_key = strstr(line, "val_name=");
-    if ( template_key != NULL && table->num_vals < MAX_VALS ) {
+    if ( template_key != NULL && vals_found < MAX_VALS ) {
       tkey_len = 9;
-      strncpy(table->val_names[table->num_vals], line+tkey_len, line_len-tkey_len);
-      table->num_vals++;
+      strncpy(table->val_names[vals_found], line+tkey_len, line_len-tkey_len);
+      vals_found++;
     }
 
     template_key = strstr(line, "cols=");
@@ -178,16 +231,10 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
       table->cols = atoi(line+tkey_len);
     }
 
-    template_key = strstr(line, "key_col=");
-    if ( template_key != NULL ) {
-      tkey_len = 8;
-      table->key_col = atoi(line+tkey_len);
-    }
-
     template_key = strstr(line, "num_vals=");
     if ( template_key != NULL ) {
       tkey_len = 9;
-      table->key_col = atoi(line+tkey_len);
+      table->num_vals = atoi(line+tkey_len);
     }
 
     template_key = strstr(line, "val_sep=");
@@ -204,39 +251,43 @@ int parseTableTemplate(char *table_template_file, table_t **tables,
     }
   }
 
-  printf("sep:%s val_sep:%s num_headers:%d cols:%d key_col:%d num_vals:%d\n", 
-	 tables[0]->sep, tables[0]->val_sep, tables[0]->num_headers, 
-	 tables[0]->cols, tables[0]->key_col, tables[0]->num_vals);
-
-  for (i=0; i < MAX_VALS; i++) {
-    printf("val:%s\n", 
-	   tables[0]->val_names[i]);
-  }
   fclose(table_template);
   return 0; 
 }
 
 int parseResults(char *key_template_file, char *table_template_file, 
 		 char *results_file) {
-    FILE *key_template, *results;
+    FILE *results;
     char template_buf[LINE_LEN];
     char results_buf[LINE_LEN];
     char converted_buf[LINE_LEN];
-    token_t key_val[MAX_TOKENS];
+    pcre **key_regexes;
+    pcre *key_regex;
     table_t **tables;
-    int num_tables;
+    int num_tables = 0;
+    int num_key_regexes = 0;
     char *key, *val, *token;
     int template_len, results_len, num_tokens, tokens_found;
     int i = 0;
+    int j = 0;
     int ret;
     const char *delimiters = ":*=?\t\n";
     char *word;
-
-    key_template = fopen(key_template_file, "r");
-    if (!key_template) {
-        ERROR_OUTPUT(("Failed to open template file: %s", key_template_file));
-        return -1;
-    }
+    char *columns_token, *val_token;
+    char *table_header;
+    int in_table;
+    table_t *table;
+    char columns[MAX_COLS][LINE_LEN];
+    char *key_start;
+    int key_length;
+    char *key_to_send;
+    char *val_start;
+    int val_length;
+    char *val_to_send;
+    int ovector[OVECCOUNT];
+    char *skip;
+    int val_found;
+    char *val_name;
 
     results = fopen(results_file, "r");
     if (!results) {
@@ -245,83 +296,159 @@ int parseResults(char *key_template_file, char *table_template_file,
     }
 
     tables = malloc(sizeof(table_t *) * MAX_TABLES);
+    key_regexes = malloc(sizeof(pcre *) * MAX_KEY_REGEXES);
     ret = parseTableTemplate(table_template_file, tables, &num_tables);
     if (ret < 0) {
-        ERROR_OUTPUT(("Failed to table template file: %s", table_template_file));
+        ERROR_OUTPUT(("Failed to parse table template file: %s", table_template_file));
         return -1;
     }
 
-    // store template file contents in memory;
-    // go through each line of results and compare with what's in key array (template file).
-    // for now, this only returns the first instance of a match between key and val
-
-    // build the key array
-    while(fgets(key_val[i].key, LINE_LEN, key_template) != NULL) {
-        if (key_val[i].key[0] == 0) {
-            continue;
-        }
-        key_val[i].found = false;
-        token = strtok(key_val[i].key, delimiters); // strip trailing newlines (or other delimiters) 
-        ++i;
-        if (i == MAX_TOKENS) {
-            ERROR_OUTPUT(("Too many tokens in template file. MAX_TOKENS = %d", MAX_TOKENS));
-            return -1;
-        }
+    ret = parseKeyTemplate(key_template_file, key_regexes, &num_key_regexes);
+    if (ret < 0) {
+        ERROR_OUTPUT(("Failed to parse key template file: %s", key_template_file));
+        return -1;
     }
-    key_val[i].key[0] = 0;
-    num_tokens = i;
 
-    tokens_found = 0;
+    in_table = 0;
+    table = NULL;
+    key_regex = NULL;
+
     // examine each line in results file
     while(fgets(results_buf, LINE_LEN, results)) {
-        // find the key - loop over all keys
-        for( i = 0; i < num_tokens; ++i) {
-            if (key_val[i].found) { // this logic only applies for one instance of a key per output file
-                continue;
-            }
-            key = key_val[i].key;
+      for (i = 0; i <= num_tables && (!table || 
+				      (table && !in_table)); 
+	   i++) {
+	table = tables[i];
+	table_header = NULL;
+	table_header = strstr(results_buf, table->header_names[table->headers_found]);
+	if (table_header != NULL) {
+	  table->headers_found++;
+	  break;
+	}
+      }
 
-            word = strstr(results_buf, key);
-            //DEBUG_OUTPUT(("key = .%s., results_buf = .%s., word = .%s.\n", key, results_buf, word));
-            if( word != NULL ) {
-                ++tokens_found;
-                key_val[i].found = true;
-                // get the first token (the key) - a throwaway since we already have it
-                token = strtok(word, delimiters);
-                // get the next token (the value(s))
-                token = strtok(NULL, delimiters);
-                while( token != NULL ) {
-                    // remove leading spaces
-                    while(token[0] == ' '){
-                        ++token;
-                    }
-                    strncpy(key_val[i].val, token, LINE_LEN-1);
-                    key_val[i].val[LINE_LEN-1] = 0;
-                    val = key_val[i].val;
-                    //DEBUG_OUTPUT(( "val: .%s.\n", val ));
-                    // get the other tokens that may be in the line - at present, these are ignored
-                    token = strtok(NULL, delimiters);
-                }
-                // we can either sendResult inside this loop like this, or do it later
-                // since all vals are stored inside key_val[].val
-                if (val != NULL) {
-                    sendResult(key, val);
-                    break; // this assumes only one key-value pair per line of results file
-                }
-            }
-        }
-        // if no more keys to find, break out of while loop
-        if (tokens_found == num_tokens) {
-            break;
-        }
-    } 
+      if (table && table->headers_found == 0) {
+	table = NULL;
+      }
 
+      if (table && !in_table && table->headers_found == table->num_headers) {
+	in_table = 1;
+	continue;
+      }
+
+      if (table && !in_table) {
+	continue;
+      }
+      
+      columns_token = NULL;
+      val_token = NULL;
+      if (in_table) {
+	columns_token = strstr(results_buf, table->sep);
+	if (!columns_token) {
+	  in_table = 0;
+	  table->headers_found = 0;
+	  table = NULL;
+	  goto rest;
+	}
+	columns_token = strtok(results_buf, table->sep);
+	i = 0;
+	while ( columns_token != NULL) {
+	  strcpy(columns[i], columns_token);
+	  columns[i][LINE_LEN-1] = '\0';
+	  i++;
+	  columns_token = strtok(NULL, table->sep);
+	}
+	for (i=0; i < table->cols; i++) {
+	  val_token = strstr(columns[i], table->val_sep);
+	  if (!val_token) {
+	    continue;
+	  }
+
+	  val_token = strtok(columns[i], table->val_sep);
+	  val_found = 0;
+	  while (val_token != NULL) {
+	    val_name = table->val_names[val_found];
+	    skip = strstr(val_name, "_skip");
+	    if (skip) {
+	      val_found++;
+	      continue;
+	    }
+
+	    sendResult(val_name, val_token);
+	    val_found += 1;
+	    val_token = strtok(NULL, table->val_sep);
+	  }
+	}
+      }
+      
+      if (in_table) {
+	continue;
+      }
+
+    rest:
+      //Loop over key regexps
+      for( i = 0; i < num_key_regexes; ++i ) {
+	key_regex = key_regexes[i];
+	
+	ret = pcre_exec(key_regex,                /* the compiled pattern */
+		       NULL,                     /* no extra data - we didn't study the pattern */
+		       results_buf,              /* the subject string */
+		       (int)strlen(results_buf), /* the length of the subject */
+		       0,                        /* start at offset 0 in the subject */
+		       0,                        /* default options */
+		       ovector,                  /* output vector for substring information */
+		       OVECCOUNT);               /* number of elements in the output vector */
+
+	/* Matching failed */
+	if ( ret < 0 ) {
+	  continue;
+	}
+
+	/* Matching succeded */
+
+	/*The output vector wasn't large enough */
+	if ( ret == 0 ) {
+	  ERROR_OUTPUT(("Output vector wasn't large enough for number of matches: %d\n", 
+			OVECCOUNT/3 - 1));
+	}
+
+	/* Show substrings stored in the output vector */
+	for ( j = 0; j < ret; j++ ) {
+	  if ( j == 0 ) {
+	    continue;
+	  }
+
+	  if ( j+1 >= ret ) {
+	    continue;
+	  }
+
+	  key_start = results_buf + ovector[2*j];
+	  key_length = ovector[2*j+1] - ovector[2*j];
+	  j++;
+	  val_start = results_buf + ovector[2*j];
+	  val_length = ovector[2*j+1] - ovector[2*j];
+
+	  key_to_send = calloc(key_length + 1, sizeof(char));
+	  strncpy(key_to_send, key_start, key_length);
+	  val_to_send = calloc(val_length + 1, sizeof(char));
+	  strncpy(val_to_send, val_start, val_length);
+	  sendResult(key_to_send, val_to_send);
+	  free(key_to_send);
+	  free(val_to_send);
+	}
+      }
+    }
+
+    for (i=0; i < num_key_regexes+1; i++) {
+      free(key_regexes[i]);
+    }
+    
     for (i=0; i < num_tables+1; i++) {
       free(tables[i]);
     }
 
+    free(key_regexes);
     free(tables);
-    fclose(key_template);
     fclose(results);
     return 0;
 }

@@ -6,6 +6,8 @@ if (NOT CMAKE_CONFIGURATION_TYPES )
    set( CMAKE_CONFIGURATION_TYPES Debug Release )
 endif()
 
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+
 # make 'Release' the default build type and provide help text for ccmake
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug or Release)"  )
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${CMAKE_CONFIGURATION_TYPES} )
