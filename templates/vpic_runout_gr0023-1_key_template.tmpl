@@ -1,37 +1,82 @@
-: \* (nu_e/wpe)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Processors)\s*:\s*([-]*\d+[0-9.]*\d*)
-: \* (nu_e*2*dt_coll)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (nsteps_cycle)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Time step), max time, nsteps\s*=\s*([-]*\d+[0-9.]*\d*) ([-]*\d+[0-9.]*\d*) ([-]*\d+[0-9.]*\d*)
-: \* Time step, (max time), nsteps\s*=\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Time step, max time, (nsteps)\s*=\s*[-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (wpe1ps)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Debye length), delta\s*=\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Debye length, (delta)\s*=\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (cell size in x, z)\s*=\s*([-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d*)
-: \* (Lx), Ly, Lz\s*=\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d*
-: \* Lx, (Ly), Lz\s*=\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Lx, Ly, (Lz)\s*=\s*[-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (nx), ny, nz\s*=\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d*
-: \* nx, (ny), nz\s*=\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* nx, ny, (nz)\s*=\s*[-]*\d+[0-9.]*\d* [-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (Charge/macro electron)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Charge/macro He)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Charge/macro H)\s*=\s*([-]*\d+[0-9.]*\d*)
-: \* (Average particles/processor)\s*:\s*([-]*\d+[0-9.]*\d*)
-: \* (Average particles/cell)\s*:\s*([-]*\d+[0-9.]*\d*)
+: \* (nu_e/wpe)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Processors)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (nu_e*2*dt_coll)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (nsteps_cycle)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Time step), max time, nsteps\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*) ([-]*\d+[.]*\d*[e+-]*\d*) ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* Time step, (max time), nsteps\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Time step, max time, (nsteps)\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (wpe1ps)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Debye length), delta\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Debye length, (delta)\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (cell size in x, z)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Lx), Ly, Lz\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*
+: \* Lx, (Ly), Lz\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Lx, Ly, (Lz)\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (nx), ny, nz\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*
+: \* nx, (ny), nz\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* nx, ny, (nz)\s*=\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Charge/macro electron)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Charge/macro He)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Charge/macro H)\s*=\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Average particles/processor)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Average particles/cell)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
 : \* (Do we have mobile ions)\s*?\s*([a-zA-Z]+)
 : \* (Is there He present)\s*?\s*([a-zA-Z]+)
 : \* (Is there H present)\s*?\s*([a-zA-Z]+)
-: \* (Omega_0), Omega_seed\s*:\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Omega_0, (Omega_seed)\s*:\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (Omega_pe)\s*:\s*([-]*\d+[0-9.]*\d*)
-: \* (Domega), chirp_length\s*:\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Domega, (chirp_length)\s*:\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (Plasma density), ne/nc\s*:\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Plasma density, (ne/nc)\s*:\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-: \* (Vac wavelength),\s*I_laser\s*:\s*([-]*\d+[0-9.]*\d*) [-]*\d+[0-9.]*\d*
-: \* Vac wavelength,\s*(I_laser)\s*:\s*[-]*\d+[0-9.]*\d* ([-]*\d+[0-9.]*\d*)
-
-
+: \* (Omega_0), Omega_seed\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Omega_0, (Omega_seed)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Omega_pe)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Domega), chirp_length\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Domega, (chirp_length)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Plasma density), ne/nc\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Plasma density, (ne/nc)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Vac wavelength),\s*I_laser\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* Vac wavelength,\s*(I_laser)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (T_e), T_i, m_e, m_i_H, m_i_He\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*
+: \* T_e, (T_i), m_e, m_i_H, m_i_He\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*
+: \* T_e, T_i, (m_e), m_i_H, m_i_He\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d*
+: \* T_e, T_i, m_e, (m_i_H), m_i_He\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* T_e, T_i, m_e, m_i_H, (m_i_He)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* [-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Radiation damping)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (Fraction of courant limit)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (vthe/c)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (vthi_H/c), vth_He/c\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* vthi_H/c, (vth_He/c)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (m_exponent_ele), vm\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* m_exponent_ele, (vm)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (emax)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (emax_seed)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (restart interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (energies_interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (quota_check_interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (velocity interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (poynting interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (fft ex save interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (fft ey save interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (fft ez save interval)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (f#), waist\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* f#, (waist)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (width), xfocus\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* width, (xfocus)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (ycenter), zcenter, mask\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [0-9][-]*\d+[.]*\d*[e+-]*\d*
+: \* ycenter, (zcenter), mask\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([0-9])[-]*\d+[.]*\d*[e+-]*\d*
+: \* ycenter, zcenter, (mask)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* [0-9]([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (quota \(hours\))\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (load_particles)\s*:\s*([a-zA-Z]+)
+: \* (do_collisions)\s*:\s*([a-zA-Z]+)
+: \* (self_collisions_only)\s*:\s*([a-zA-Z]+)
+: \* (tstep_coll)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (nppc_max)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (nu_e)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (cvar)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (mime_H)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (mime_He)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (ele_sort_freq)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (ion_sort_freq)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) 
+: \* (theta), theta_seed\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) [-]*\d+[.]*\d*[e+-]*\d*
+: \* theta, (theta_seed)\s*:\s*[-]*\d+[.]*\d*[e+-]*\d* ([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (launch_laser)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (launch_seed)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*) 
+: \* (ey_xloc \(for Ey\(z\) FFT write\))\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
+: \* (psum_integration_offset)\s*:\s*([-]*\d+[.]*\d*[e+-]*\d*)
 

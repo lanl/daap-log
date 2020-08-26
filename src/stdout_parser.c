@@ -159,6 +159,9 @@ int parseKeyTemplate(char *key_template_file, pcre **key_regexes,
       line_len--;
     }
 
+    if (strlen(line) == 0) {
+      continue;
+    }
     /* based off of: 
        https://www.ncbi.nlm.nih.gov/IEB/ToolBox/C_DOC/lxr/source/regexp/
        demo/pcredemo.c */
@@ -453,9 +456,8 @@ int parseResults(char *key_template_file, char *table_template_file,
     /* Loop over key regexps and compare the line to each one
        We do want to compare multiple regexes to each line for the
        case when there are multiple key/value pairs per line */
-    for( i = 0; i < num_key_regexes; ++i ) {
+    for( i = 0; i <= num_key_regexes; i++) {
       key_regex = key_regexes[i];
-      
       ret = pcre_exec(key_regex,                /* the compiled pattern */
 		      NULL,                     /* no extra data - we didn't study the pattern */
 		      line,                     /* the subject string */
