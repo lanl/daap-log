@@ -416,6 +416,7 @@ int parseResults(char *key_template_file, char *table_template_file,
       }
 
       //now that we have the columns, find the column values for each row
+      val_found = 0;
       for (i=0; i < table->cols; i++) {
 	//split each column value by the value seperator
 	val_token = strstr(columns[i], table->val_sep);
@@ -425,7 +426,6 @@ int parseResults(char *key_template_file, char *table_template_file,
 	
 	//get all of the column values per row
 	val_token = strtok(columns[i], table->val_sep);
-	val_found = 0;
 	while (val_token != NULL) {
 	  val_name = table->val_names[val_found];
 	  //skip this column if "_skip" is in the name
@@ -450,7 +450,9 @@ int parseResults(char *key_template_file, char *table_template_file,
     }
 
   rest:
-    //Loop over key regexps and compare the line to each one
+    /* Loop over key regexps and compare the line to each one
+       We do want to compare multiple regexes to each line for the
+       case when there are multiple key/value pairs per line */
     for( i = 0; i < num_key_regexes; ++i ) {
       key_regex = key_regexes[i];
       
