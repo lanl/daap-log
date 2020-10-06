@@ -129,15 +129,30 @@ BEGIN_C_DECLS
  *   like hostname and job_id. */
 int daapInit(const char *app_name, int msg_level, int agg_type, transport transport_type);
 
+/* Fortran version of daapInit */
+void daapinit_(char *app_name);
+
 /*   Cleans up / depopulates / dallocates (as required) structure vars 
  *   populated by daapInit. */
 int daapFinalize(void);
+
+/* Fortran version of daapFinalize */
+void daapfinalize_(void);
 
 /* Function to write a log entry from within an app running on a cluster 
  * compute node. This entry will be transported off-cluster to the data 
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
  * called prior to invoking daapLogWrite. */
 int daapLogWrite(const char *message, ...);
+
+/* Fortran version of daapLogWrite */
+void daaplogwrite_(char *message);
+
+/* Function to write a log entry from a json string.
+ * This entry will be transported off-cluster to the data 
+ * analytics cluster (Tivan on the open side at LANL). daapInit must be
+ * called prior to invoking daapLogWrite. */
+int daapLogRawWrite(const char *message, ...);
 
 /* Initializes the combination of a named metric and a number of named tags
  *   (up to 10). Values for the metric and tags are then specified in each
@@ -155,6 +170,9 @@ int daapMetricWrite(metric_t metric);
 
 /* Builds a json object */
 char *daapBuildJSON(long timestamp, char *message);
+
+/* Builds a json object from an existing json message */
+char *daapBuildRawJSON(char *message);
 
 /* TCP Functions for Writing to a TCP Socket */
 int daapTCPConnect(void);

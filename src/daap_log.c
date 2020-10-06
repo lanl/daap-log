@@ -149,6 +149,80 @@ int daapLogWrite(const char *message, ...) {
     return 0;
 }
 
+void daaplogwrite_(char *message) {
+    daapLogWrite(message);
+}
+
+/* Function to write out a json message to a log (followed by escape/control args),
+ * which will then make its way to an off-cluster data analytics system (Tivan
+ * on the turquoise network at LANL).
+ * 'Log' can mean syslog or a direct connection to a message broker (RabbitMQ,
+ * LDMS Streams, a point-to-point user process, etc), or we can just aggregate 
+ * and write only when the threshold is reached. The method used is selected 
+ * at build time by setting the appropriate macro (an option in CMake). 
+ * The string is prepended with some syslog-type info, whether or not syslog 
+ * is the transport method - application name and hostname, for instance.
+ *
+ *   ***Note that daapLogRawWrite is subject to the same format string
+ *   vulnerabilities/attacks as printf() and is not intended to be used by
+ *   untrusted callers.
+ */
+int daapLogRawWrite(const char *message, ...) {
+    /* probably needs to be thread safe; or at least, callees 
+     * must be thread safe */
+    va_list args;
+    char *json_str;
+    char full_message[DAAP_MAX_MSG_LEN+1];
+    int agg_threshold = 0;
+    FILE *null_device;
+    int count, msg_len;
+    static bool first_time_in_write = true;
+
+    if (!daapInit_called) {
+        errno = EPERM;
+        perror("Initialize with daapInit() before calling daapLogRawWrite()");
+        return DAAP_ERROR;
+    }
+
+    /* don't have easy way of determining length of full message
+     * apart from this hack. */
+    va_start(args, message);
+    null_device = fopen(NULL_DEVICE, "w");
+    msg_len = vfprintf(null_device, message, args);
+    fclose(null_device);
+    va_end(args);
+
+    if (msg_len > DAAP_MAX_MSG_LEN) {
+        ERROR_OUTPUT(("Message is longer than DAAP_MAX_MSG_LEN: %d; truncating.", DAAP_MAX_MSG_LEN));
+        msg_len = DAAP_MAX_MSG_LEN;
+    }
+
+    va_start(args, message);
+    vsnprintf(full_message, msg_len + 1, message, args);
+    va_end(args);
+    DEBUG_OUTPUT((full_message));
+
+    /* create JSON output from the data that's been passed in plus what's
+     * already been populated in init_data struct */
+    json_str = daapBuildRawJSON(full_message);
+    if (json_str == NULL) {
+        goto end;
+    }
+
+    DEBUG_OUTPUT(("Complete json string: %s",json_str));
+
+    if (init_data.transport_type == SYSLOG) { 
+        SYSLOGGER(init_data.level, full_message, args);
+    } else if (init_data.transport_type == TCP) {
+        count = daapTCPLogWrite(json_str, strlen(json_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
+    }
+    free(json_str);
+
+ end:
+    return 0;
+}
+
 /* Placeholder for now. Will only develop if there is interest.
  * Would provide the ability to read messages that have been written by 
  * the application, **local to the node that is calling the function**. 
@@ -181,7 +255,6 @@ char *daapBuildJSON(long timestamp, char *message) {
     cJSON *timestamp_val = NULL;
     cJSON *message_val = NULL;
     cJSON *data = cJSON_CreateObject();
-
 
     if (data == NULL) {
         goto end;
@@ -285,6 +358,52 @@ char *daapBuildJSON(long timestamp, char *message) {
 
     cJSON_AddItemToObject(data, TS_JSON_KEY, timestamp_val);
     message_val = cJSON_CreateString(message);
+    if (message_val == NULL) {
+        goto end;
+    }
+
+    cJSON_AddItemToObject(data, MSG_JSON_KEY, message_val);
+    string = cJSON_PrintUnformatted(data);
+    if (string == NULL) {
+        ERROR_OUTPUT(("Failed to convert json object to string.\n"));
+    }
+
+ end:
+    cJSON_Delete(data);
+    return string;
+}
+
+char *daapBuildRawJSON(char *message) {
+    char *string = NULL;
+    long timestamp;
+    cJSON *source_val = NULL;
+    cJSON *message_val = NULL;
+    cJSON *timestamp_val = NULL;
+    cJSON *data = cJSON_CreateObject();
+
+    if (!message) {
+      return NULL;
+    }
+
+    if (data == NULL) {
+        goto end;
+    }
+
+    /* Build cJSON Object */
+    source_val = cJSON_CreateString(DAAP_JSON_VAL);
+    if (source_val == NULL) {
+      goto end;
+    }
+
+    cJSON_AddItemToObject(data, DAAP_JSON_KEY, source_val);
+    timestamp = getmillisectime();
+    timestamp_val = cJSON_CreateNumber(timestamp);
+    if (timestamp_val == NULL) {
+        goto end;
+    }
+
+    cJSON_AddItemToObject(data, TS_JSON_KEY, timestamp_val);
+    message_val = cJSON_Parse(message);
     if (message_val == NULL) {
         goto end;
     }

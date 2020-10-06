@@ -294,6 +294,11 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     return ret_val;
 }
 
+void daapinit_(char* app_name) {
+    printf("Appname: %s\n", app_name);
+    daapInit(app_name, 0, DAAP_AGG_OFF, TCP);
+}
+
 /* Free memory from allocated components of init_data */
 int daapFinalize(void) {
 
@@ -314,4 +319,8 @@ int daapFinalize(void) {
 
     pthread_mutex_unlock(&finalize_mutex);
     return DAAP_SUCCESS;
+}
+
+void daapfinalize_(void) {
+    daapFinalize();
 }
