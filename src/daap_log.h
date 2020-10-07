@@ -130,7 +130,7 @@ BEGIN_C_DECLS
 int daapInit(const char *app_name, int msg_level, int agg_type, transport transport_type);
 
 /* Fortran version of daapInit */
-void daapinit_(char *app_name);
+void daapinit_(char *app_name, int len);
 
 /*   Cleans up / depopulates / dallocates (as required) structure vars 
  *   populated by daapInit. */
@@ -146,7 +146,7 @@ void daapfinalize_(void);
 int daapLogWrite(const char *message, ...);
 
 /* Fortran version of daapLogWrite */
-void daaplogwrite_(char *message);
+void daaplogwrite_(char *message, int len);
 
 /* Function to write a log entry from a json string.
  * This entry will be transported off-cluster to the data 

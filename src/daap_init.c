@@ -294,8 +294,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     return ret_val;
 }
 
-void daapinit_(char* app_name) {
-    printf("Appname: %s\n", app_name);
+void daapinit_(char* app_name, int len) {
+    app_name[len] = '\0';
     daapInit(app_name, 0, DAAP_AGG_OFF, TCP);
 }
 

@@ -149,7 +149,8 @@ int daapLogWrite(const char *message, ...) {
     return 0;
 }
 
-void daaplogwrite_(char *message) {
+void daaplogwrite_(char *message, int len) {
+    message[len] = '\0';
     daapLogWrite(message);
 }
 
