@@ -49,7 +49,7 @@ module Fluent
             
             name = child['name']          
             if not ['infiniband','cpu', 'mem', 
-                    'daap_heartbeat'].include?(name)
+                    'SNAP_XROADS'].include?(name)
               next
             end
 
@@ -89,7 +89,7 @@ module Fluent
               end
             end
             #Heartbeat
-            if name == 'daap_heartbeat'
+            if fields.has_key?('message') and fields['message'] = "running"
               new_rec['metric'] = 'heartbeat'
             end
             #Add common fields
