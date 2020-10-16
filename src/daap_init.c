@@ -152,14 +152,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     init_data.agg_val = agg_val;
     init_data.transport_type = transport_type;
 
-    /* get user */ 
-    if( getenv("USER") != NULL  ) {
-        init_data.user = strdup(getenv("USER"));
-    }
-    else {
-        init_data.user = calloc(1, 1);
-    }
-
     if( getenv("SLURMD_NODENAME") != NULL  ) {
         init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
     }
@@ -177,23 +169,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     /* set daap_hostname[] for purposes of printing output (not part of API) */
     strncpy(daap_hostname, init_data.hostname, LOCAL_MAXHOSTNAMELEN);
     daap_hostname[LOCAL_MAXHOSTNAMELEN - 1] = '\0';
-    /* get slurm job id */
-    /* this assignment (w/o a malloc) should be ok since buff is a const char* */
-    if( getenv("SLURM_JOB_ID") != NULL  ) {
-        init_data.job_id = strdup(getenv("SLURM_JOB_ID"));
-    }
-    else {
-        init_data.job_id = calloc(1, 1);
-    }
-    /* get slurm job name */ 
-    if( getenv("SLURM_JOB_NAME") != NULL  ) {
-        envvar_len = strlen(getenv("SLURM_JOB_NAME"));
-        init_data.job_name = calloc(envvar_len + 1, 1);
-        strcpy(init_data.job_name, getenv("SLURM_JOB_NAME"));
-    }
-    else {
-        init_data.job_name = calloc(1, 1);
-    }
     /* get cluster name */ 
     if( getenv("SLURM_CLUSTER_NAME") != NULL  ) {
         envvar_len = strlen(getenv("SLURM_CLUSTER_NAME"));
@@ -202,71 +177,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     }
     else {
         init_data.cluster_name = calloc(1, 1);
-    }
-    /* get cpus on node */ 
-    if( getenv("SLURM_CPUS_ON_NODE") != NULL  ) {
-        init_data.cpus_on_node = atoi(getenv("SLURM_CPUS_ON_NODE"));
-    }
-    else {
-        init_data.cpus_on_node = 0;
-    }
-    /* get cpus per task (only populated if --cpus-per-task used w/slurm) */ 
-    if( getenv("SLURM_CPUS_PER_TASK") != NULL  ) {
-        envvar_len = strlen(getenv("SLURM_CPUS_PER_TASK"));
-        init_data.cpus_per_task = calloc(envvar_len + 1, 1);
-        strcpy(init_data.cpus_per_task, getenv("SLURM_CPUS_PER_TASK"));
-    }
-    else {
-        init_data.cpus_per_task = calloc(1, 1);
-    }
-    /* get number of nodes in job allocation */
-    if( getenv("SLURM_JOB_NODES") != NULL  ) {
-        envvar_len = strlen(getenv("SLURM_JOB_NODES"));
-        init_data.job_nodes = calloc(envvar_len + 1, 1);
-        strcpy(init_data.job_nodes, getenv("SLURM_JOB_NODES"));
-    }
-    else {
-        init_data.job_nodes = calloc(1, 1);
-    }
-    /* get node list for job */ 
-    if( getenv("SLURM_JOB_NODELIST") != NULL  ) {
-        envvar_len = strlen(getenv("SLURM_JOB_NODELIST"));
-        init_data.job_nodelist = calloc(envvar_len + 1, 1);
-        strcpy(init_data.job_nodelist, getenv("SLURM_JOB_NODELIST"));
-    }
-    else {
-        init_data.job_nodelist = calloc(1, 1);
-    }
-    /* get number of tasks for job */
-    if( getenv("SLURM_NTASKS") != NULL  ) {
-        init_data.ntasks = atoi(getenv("SLURM_NTASKS"));
-    } else {
-        init_data.ntasks = 0;
-    }
-
-    /* get MPI rank of this task (SLURM_PROCID == rank) */
-    if( getenv("SLURM_PROCID") != NULL  ) {
-        init_data.mpi_rank = atoi(getenv("SLURM_PROCID"));
-    }
-    else {
-        init_data.mpi_rank = 0;
-    }
-
-    /* get process ID of the task */
-    if( getenv("SLURM_TASK_PID") != NULL  ) {
-        init_data.task_pid = atoi(getenv("SLURM_TASK_PID"));
-    }
-    else {
-        init_data.task_pid = 0;
-    }
-    /* get slurm tasks per node */
-    if( getenv("SLURM_TASKS_PER_NODE") != NULL  ) {
-        envvar_len = strlen(getenv("SLURM_TASKS_PER_NODE"));
-        init_data.tasks_per_node = calloc(envvar_len + 1, 1);
-        strcpy(init_data.tasks_per_node, getenv("SLURM_TASKS_PER_NODE"));
-    }
-    else {
-        init_data.tasks_per_node = calloc(1, 1);
     }
 
     /* if we are using syslog, open the log with the user-provided msg_level */
@@ -308,14 +218,7 @@ int daapFinalize(void) {
 
     free(init_data.hostname);
     free(init_data.appname);
-    free(init_data.user);
-    free(init_data.job_id);
-    free(init_data.job_name);
     free(init_data.cluster_name);
-    free(init_data.cpus_per_task);
-    free(init_data.job_nodes);
-    free(init_data.job_nodelist);
-    free(init_data.tasks_per_node);
 
     pthread_mutex_unlock(&finalize_mutex);
     return DAAP_SUCCESS;

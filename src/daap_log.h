@@ -68,19 +68,9 @@ typedef struct {
 /* Struct for holding initialization data */
 typedef struct {
     char *appname;
-    char *user;
     char *hostname;
-    char *job_id;
-    char *job_name;
     char *cluster_name;
-    int cpus_on_node;
-    char *cpus_per_task;
-    char *job_nodes; /* number of nodes in job allocation */
-    char *job_nodelist; /* slurm-format node list for job */
-    int ntasks; /* number of tasks */
     int mpi_rank;
-    int task_pid;
-    char *tasks_per_node;
     int level;
     int agg_val;
     int alloc_size;
@@ -91,24 +81,11 @@ typedef struct {
  * and accessed by the *Write() functions. */
 extern daap_init_t init_data;
 
-#define DAAP_JSON_KEY "source"
-#define DAAP_JSON_VAL "daap_log"
-#define APP_JSON_KEY  "appname"
-#define USER_JSON_KEY "user"
-#define HOST_JSON_KEY "hostname"
-#define JOB_ID_JSON_KEY "job_id"
-#define JOB_NAME_JSON_KEY "job_name"
-#define CLUSTER_NAME_JSON_KEY "cluster_name"
-#define CPUS_ON_NODE_JSON_KEY "cpus_on_node"
-#define CPUS_PER_TASK_JSON_KEY "cpus_per_task"
-#define JOB_NODES_JSON_KEY "job_nodes"
-#define JOB_NODELIST_JSON_KEY "job_nodelist"
-#define NTASKS_JSON_KEY "ntasks"
-#define MPI_RANK_JSON_KEY "mpi_rank"
-#define TASK_PID_JSON_KEY "task_pid"
-#define TASKS_PER_NODE_JSON_KEY "tasks_per_node"
-#define TS_JSON_KEY "timestamp"
-#define MSG_JSON_KEY "message"
+#define APP_KEY  "appname"
+#define HOST_KEY "hostname"
+#define CLUSTER_NAME_KEY "cluster"
+#define MPI_RANK_KEY "mpirank"
+#define MSG_KEY "message"
 
 #define DAAP_SUCCESS 0
 #define DAAP_ERROR  -1
@@ -162,17 +139,17 @@ int daapMetricCreate(metric_t *metric, char *metricName, int numTags, char *tagN
 /* Deletes/deallocates structure created with daapTsdbCreateMetric() */
 int daapMetricDestroy(metric_t metric);
 
-/* Function to create valid JSON data from within an app running on a cluster
- * compute node. This JSON data will be transported off-cluster to the data
+/* Function to create valid influxdb data from within an app running on a cluster
+ * compute node. This influxdb data will be transported off-cluster to the data
  * analytics cluster for insertion into a timeseries database (OpenTSDB on
  * Tivan on the open side at LANL) */
 int daapMetricWrite(metric_t metric);
 
-/* Builds a json object */
-char *daapBuildJSON(long timestamp, char *message);
+/* Builds an influxdb string */
+char *daapBuildInflux(long timestamp, char *message);
 
-/* Builds a json object from an existing json message */
-char *daapBuildRawJSON(char *message);
+/* Builds an influxdb string without tags */
+char *daapBuildRawInflux(char *message);
 
 /* TCP Functions for Writing to a TCP Socket */
 int daapTCPConnect(void);
