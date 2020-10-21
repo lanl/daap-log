@@ -39,7 +39,6 @@
 
 #include "daap_log_internal.h"
 #include "daap_log.h"
-#include "cJSON.h"
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -73,7 +72,7 @@ int daapLogWrite(const char *message, ...) {
     /* probably needs to be thread safe; or at least, callees 
      * must be thread safe */
     va_list args;
-    char *json_str;
+    char *influx_str;
     char full_message[DAAP_MAX_MSG_LEN+1];
     unsigned long tstamp;
     int agg_threshold = 0;
@@ -108,14 +107,12 @@ int daapLogWrite(const char *message, ...) {
     tstamp = getmillisectime();
     // do some sanity checking on the data here?
 
-    /* create JSON output from the data that's been passed in plus what's
-     * already been populated in init_data struct */
-    json_str = daapBuildJSON(tstamp, full_message);
-    if (json_str == NULL) {
+    influx_str = daapBuildInflux(tstamp, full_message);
+    if (influx_str == NULL) {
         goto end;
     }
 
-    DEBUG_OUTPUT(("Complete json string: %s",json_str));
+    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
 
     // if we are aggregating, just put the data in an internal buffer
     // and increment our aggregator until our threshold is reached;
@@ -140,10 +137,10 @@ int daapLogWrite(const char *message, ...) {
     if (init_data.transport_type == SYSLOG) { 
         SYSLOGGER(init_data.level, full_message, args);
     } else if (init_data.transport_type == TCP) {
-        count = daapTCPLogWrite(json_str, strlen(json_str));
-        DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
+        count = daapTCPLogWrite(influx_str, strlen(influx_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
     }
-    free(json_str);
+    free(influx_str);
 
  end:
     return 0;
@@ -154,7 +151,7 @@ void daaplogwrite_(char *message, int len) {
     daapLogWrite(message);
 }
 
-/* Function to write out a json message to a log (followed by escape/control args),
+/* Function to write out an influx message to a log (followed by escape/control args),
  * which will then make its way to an off-cluster data analytics system (Tivan
  * on the turquoise network at LANL).
  * 'Log' can mean syslog or a direct connection to a message broker (RabbitMQ,
@@ -172,7 +169,7 @@ int daapLogRawWrite(const char *message, ...) {
     /* probably needs to be thread safe; or at least, callees 
      * must be thread safe */
     va_list args;
-    char *json_str;
+    char *influx_str;
     char full_message[DAAP_MAX_MSG_LEN+1];
     int agg_threshold = 0;
     FILE *null_device;
@@ -203,22 +200,22 @@ int daapLogRawWrite(const char *message, ...) {
     va_end(args);
     DEBUG_OUTPUT((full_message));
 
-    /* create JSON output from the data that's been passed in plus what's
+    /* create influx output from the data that's been passed in plus what's
      * already been populated in init_data struct */
-    json_str = daapBuildRawJSON(full_message);
-    if (json_str == NULL) {
+    influx_str = daapBuildRawInflux(full_message);
+    if (influx_str == NULL) {
         goto end;
     }
 
-    DEBUG_OUTPUT(("Complete json string: %s",json_str));
+    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
 
     if (init_data.transport_type == SYSLOG) { 
         SYSLOGGER(init_data.level, full_message, args);
     } else if (init_data.transport_type == TCP) {
-        count = daapTCPLogWrite(json_str, strlen(json_str));
-        DEBUG_OUTPUT(("Writing message: %s, written: %d", json_str, count));
+        count = daapTCPLogWrite(influx_str, strlen(influx_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
     }
-    free(json_str);
+    free(influx_str);
 
  end:
     return 0;
@@ -236,186 +233,31 @@ int daapLogRead(int key, int time_interval, int max_rows, char **row_array) {
     return 0;
 }
 
-char *daapBuildJSON(long timestamp, char *message) {
-    char *string = NULL;
-    cJSON *source_val = NULL;
-    cJSON *app_val = NULL;
-    cJSON *user_val = NULL;
-    cJSON *hostname_val = NULL;
-    cJSON *jobid_val = NULL;
-    cJSON *jobname_val = NULL;
-    cJSON *cpusonnode_val = NULL;
-    cJSON *cpuspertask_val = NULL;
-    cJSON *clustername_val = NULL;
-    cJSON *jobnodes_val = NULL;
-    cJSON *jobnodelist_val = NULL;
-    cJSON *ntasks_val = NULL;
-    cJSON *mpirank_val = NULL;
-    cJSON *pid_val = NULL;
-    cJSON *taskspernode_val = NULL;
-    cJSON *timestamp_val = NULL;
-    cJSON *message_val = NULL;
-    cJSON *data = cJSON_CreateObject();
+char *daapBuildInflux(long timestamp, char *message) {
+    int max_size = 2048;
+    char *influx_msg = malloc(max_size);
+    long long tstamp = timestamp * 1000000;
 
-    if (data == NULL) {
-        goto end;
-    }
+    snprintf(influx_msg, max_size, 
+	     "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld", 
+	     APP_KEY, init_data.appname, 
+	     HOST_KEY, init_data.hostname,
+	     CLUSTER_NAME_KEY, init_data.cluster_name,
+	     MPI_RANK_KEY, init_data.mpi_rank,
+	     MSG_KEY, message,
+	     tstamp);
 
-    /* Build cJSON Object */
-    source_val = cJSON_CreateString(DAAP_JSON_VAL);
-    if (source_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, DAAP_JSON_KEY, source_val);
-    app_val = cJSON_CreateString(init_data.appname);
-    if (app_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, APP_JSON_KEY, app_val);
-    user_val = cJSON_CreateString(init_data.user);
-    if (user_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, USER_JSON_KEY, user_val);
-    hostname_val = cJSON_CreateString(init_data.hostname);
-    if (hostname_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, HOST_JSON_KEY, hostname_val);
-    jobid_val = cJSON_CreateString(init_data.job_id);
-    if (jobid_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, JOB_ID_JSON_KEY, jobid_val);
-    jobname_val = cJSON_CreateString(init_data.job_name);
-    if (jobname_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, JOB_NAME_JSON_KEY, jobname_val);
-    clustername_val = cJSON_CreateString(init_data.cluster_name);
-    if (jobname_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, CLUSTER_NAME_JSON_KEY, clustername_val);
-    cpusonnode_val = cJSON_CreateNumber(init_data.cpus_on_node);
-    if (cpusonnode_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, CPUS_ON_NODE_JSON_KEY, cpusonnode_val);
-    cpuspertask_val = cJSON_CreateString(init_data.cpus_per_task);
-    if (cpuspertask_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, CPUS_PER_TASK_JSON_KEY, cpuspertask_val);
-    jobnodes_val = cJSON_CreateString(init_data.job_nodes);
-    if (cpuspertask_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, JOB_NODES_JSON_KEY, jobnodes_val);
-    jobnodelist_val = cJSON_CreateString(init_data.job_nodelist);
-    if (cpuspertask_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, JOB_NODELIST_JSON_KEY, jobnodelist_val);
-    ntasks_val = cJSON_CreateNumber(init_data.ntasks);
-    if (ntasks_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, NTASKS_JSON_KEY, ntasks_val);
-    mpirank_val = cJSON_CreateNumber(init_data.mpi_rank);
-    if (mpirank_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, MPI_RANK_JSON_KEY, mpirank_val);
-    pid_val = cJSON_CreateNumber(init_data.task_pid);
-    if (mpirank_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, TASK_PID_JSON_KEY, pid_val);
-    taskspernode_val = cJSON_CreateString(init_data.tasks_per_node);
-    if (taskspernode_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, TASKS_PER_NODE_JSON_KEY, taskspernode_val);
-    timestamp_val = cJSON_CreateNumber(timestamp);
-    if (timestamp_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, TS_JSON_KEY, timestamp_val);
-    message_val = cJSON_CreateString(message);
-    if (message_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, MSG_JSON_KEY, message_val);
-    string = cJSON_PrintUnformatted(data);
-    if (string == NULL) {
-        ERROR_OUTPUT(("Failed to convert json object to string.\n"));
-    }
-
- end:
-    cJSON_Delete(data);
-    return string;
+    return influx_msg;
 }
 
-char *daapBuildRawJSON(char *message) {
-    char *string = NULL;
-    long timestamp;
-    cJSON *source_val = NULL;
-    cJSON *message_val = NULL;
-    cJSON *timestamp_val = NULL;
-    cJSON *data = cJSON_CreateObject();
+char *daapBuildRawInflux(char *message) {
+    int max_size = 2048;
+    char *influx_msg = malloc(max_size);
 
-    if (!message) {
-      return NULL;
-    }
+    snprintf(influx_msg, max_size, 
+	     "daap,%s", 
+	     message);
 
-    if (data == NULL) {
-        goto end;
-    }
-
-    /* Build cJSON Object */
-    source_val = cJSON_CreateString(DAAP_JSON_VAL);
-    if (source_val == NULL) {
-      goto end;
-    }
-
-    cJSON_AddItemToObject(data, DAAP_JSON_KEY, source_val);
-    timestamp = getmillisectime();
-    timestamp_val = cJSON_CreateNumber(timestamp);
-    if (timestamp_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, TS_JSON_KEY, timestamp_val);
-    message_val = cJSON_Parse(message);
-    if (message_val == NULL) {
-        goto end;
-    }
-
-    cJSON_AddItemToObject(data, MSG_JSON_KEY, message_val);
-    string = cJSON_PrintUnformatted(data);
-    if (string == NULL) {
-        ERROR_OUTPUT(("Failed to convert json object to string.\n"));
-    }
-
- end:
-    cJSON_Delete(data);
-    return string;
+    return influx_msg;
 }
+
