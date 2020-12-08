@@ -1,9 +1,9 @@
-/* 
+/*
  * Data Analytics Application Profiling API
  *
- * Provides a simplifying user code-oriented library that interfaces 
+ * Provides a simplifying user code-oriented library that interfaces
  * with intermediaries so that data can be logged or rows inserted
- * into a database on a remote monitoring cluster 
+ * into a database on a remote monitoring cluster
  * (Tivan at LANL on the unclassified network).
  *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
@@ -11,6 +11,9 @@
  * Additional authors: Hugh Greenberg, hng@lanl.gov
  *
  */
+
+#ifndef DAAP_LOG_H
+#define DAAP_LOG_H
 
 #include <pthread.h>
 #include <sys/types.h>
@@ -47,6 +50,14 @@ typedef enum transports {
   TCP
 } transport;
 
+/* types of messages that can be sent */
+typedef enum msgtype {
+    MESSAGE,
+    HEARTBEAT,
+    JOB_START,
+    JOB_END
+} msgtype;
+
 /* Struct type for holding a tag (the combination of tag name and tag value)*/
 typedef struct {
     char *tag_name;
@@ -57,7 +68,7 @@ typedef struct {
 typedef struct {
     char *metric_name;
     char *metric_value;
-    int metric_id; 
+    int metric_id;
     char *hostname;
     char *job_id;
     int cpu_id;
@@ -77,15 +88,17 @@ typedef struct {
     transport transport_type;
 } daap_init_t;
 
-/* struct initialized by daapInit(),finalized in daapFinalize(), 
+
+/* struct initialized by daapInit(),finalized in daapFinalize(),
  * and accessed by the *Write() functions. */
 extern daap_init_t init_data;
 
-#define APP_KEY  "appname"
-#define HOST_KEY "hostname"
+#define APP_KEY          "appname"
+#define HOST_KEY         "hostname"
 #define CLUSTER_NAME_KEY "cluster"
-#define MPI_RANK_KEY "mpirank"
-#define MSG_KEY "message"
+#define MPI_RANK_KEY     "mpirank"
+#define MSG_KEY          "message"
+#define METRIC_KEY       "metric"
 
 #define DAAP_SUCCESS 0
 #define DAAP_ERROR  -1
@@ -100,6 +113,7 @@ extern daap_init_t init_data;
 
 #define DAAP_MAX_MSG_LEN 8096
 
+
 BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
  *   using the function parameters and data specific to the node/job,
@@ -109,15 +123,15 @@ int daapInit(const char *app_name, int msg_level, int agg_type, transport transp
 /* Fortran version of daapInit */
 void daapinit_(char *app_name, int len);
 
-/*   Cleans up / depopulates / dallocates (as required) structure vars 
+/*   Cleans up / depopulates / dallocates (as required) structure vars
  *   populated by daapInit. */
 int daapFinalize(void);
 
 /* Fortran version of daapFinalize */
 void daapfinalize_(void);
 
-/* Function to write a log entry from within an app running on a cluster 
- * compute node. This entry will be transported off-cluster to the data 
+/* Function to write a log entry from within an app running on a cluster
+ * compute node. This entry will be transported off-cluster to the data
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
  * called prior to invoking daapLogWrite. */
 int daapLogWrite(const char *message, ...);
@@ -125,8 +139,17 @@ int daapLogWrite(const char *message, ...);
 /* Fortran version of daapLogWrite */
 void daaplogwrite_(char *message, int len);
 
+/* Function to log a heartbeat from an application process */
+int daapLogHeartbeat(void);
+
+/* Function to log a job start from an application process */
+int daapLogJobStart(void);
+
+/* Function to log a job end from an application process */
+int daapLogJobEnd(void);
+
 /* Function to write a log entry from a json string.
- * This entry will be transported off-cluster to the data 
+ * This entry will be transported off-cluster to the data
  * analytics cluster (Tivan on the open side at LANL). daapInit must be
  * called prior to invoking daapLogWrite. */
 int daapLogRawWrite(const char *message, ...);
@@ -146,7 +169,7 @@ int daapMetricDestroy(metric_t metric);
 int daapMetricWrite(metric_t metric);
 
 /* Builds an influxdb string */
-char *daapBuildInflux(long timestamp, char *message);
+char *daapBuildInflux(long timestamp, msgtype msg_type, char *message);
 
 /* Builds an influxdb string without tags */
 char *daapBuildRawInflux(char *message);
@@ -156,3 +179,5 @@ int daapTCPConnect(void);
 int daapTCPClose();
 int daapTCPLogWrite(char *buf, int buf_size);
 END_C_DECLS
+
+#endif /* DAAP_LOG_H */

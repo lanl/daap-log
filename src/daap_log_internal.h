@@ -1,4 +1,7 @@
-/* Header file for includes, functions and structures, 
+#ifndef DAAP_LOG_INTERNAL_H
+#define DAAP_LOG_INTERNAL_H
+
+/* Header file for includes, functions and structures,
  * and so on that are *not* part of the API */
 
 #include <stdio.h>
@@ -26,10 +29,10 @@
 
 #define NULL_DEVICE "/dev/null"
 
-#if defined __APPLE__ 
-#    define SYSLOGGER(level, args...) os_log(level, args)
+#if defined __APPLE__
+#    define DAAP_SYSLOG(level, string...) os_log(level, "%s", string)
 #else
-#    define SYSLOGGER(level, args...) vsyslog(level, args)
+#    define DAAP_SYSLOG(level, string...) syslog(level, "%s", string)
 #endif
 
 #ifndef DEBUG
@@ -55,8 +58,8 @@ char daap_hostname[LOCAL_MAXHOSTNAMELEN];
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define PRINT_MAX 1024
 
-/* Caution: va_list args from a parent function such as daapLogWrite() cannot be 
- * passed through as a second argument from a parent function */
+/* Caution: va_list args from a parent function such as daapLogWrite()
+ * cannot be passed through as a second argument from a parent function */
 static inline char *deformat(const char *format_str, ... )
 {
     static char output_str[PRINT_MAX];
@@ -66,12 +69,12 @@ static inline char *deformat(const char *format_str, ... )
     vsnprintf(output_str, PRINT_MAX - 1, format_str, args);
     va_end(args);
     return output_str;
-} 
+}
 
 /* Note that x must be wrapped in parentheses if it contains multiple components
  * (string with format specifiers plus arguments).
  *
- * Note also that PRINT_OUTPUT (and deformat()) do not allow you to pass through 
+ * Note also that PRINT_OUTPUT (and deformat()) do not allow you to pass through
  * va_list args from a parent function (such as daapLogWrite, for instance). */
 #define PRINT_OUTPUT(file, x) {                  \
     struct timeval tval;                         \
@@ -97,3 +100,5 @@ static pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
     PRINT_OUTPUT(stderr, x);    \
     pthread_mutex_unlock(&print_mutex); \
 }
+
+#endif /* DAAP_LOG_INTERNAL_H */
