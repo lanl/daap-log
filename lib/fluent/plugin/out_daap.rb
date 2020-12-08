@@ -62,9 +62,8 @@ module Fluent
 
             new_rec = {}
             fields = child['fields']
-            #Infiniband errors
-            #Heartbeat
-            if fields.has_key?('message') and fields['message'] == "running"
+            #Heartbeat, job start, job end
+            if fields.has_key?('message') and (fields['message'] == "running" or fields['message'] == "heartbeat")
               new_rec['metric'] = 'heartbeat'
               new_rec['val'] = 1
             elsif fields.has_key?('message') and fields['message'].index(/job start/) != nil
@@ -98,6 +97,7 @@ module Fluent
                 end
               end            
             end
+            #Infiniband errors
             if metric_name == 'infiniband'
               new_rec['metric'] = 'infiniband_errors'
               new_rec['device'] = child['tags']['device']
