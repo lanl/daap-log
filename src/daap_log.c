@@ -1,22 +1,22 @@
-/* 
+/*
  * Data Analytics Application Profiling API
  *
- * A simplifying and abstracting usercode-oriented library that 
+ * A simplifying and abstracting usercode-oriented library that
  * provides the means for codes running on HPC cluster compute nodes
  * to log messages to a logfile on an external system -
  * at LANL this is the Tivan Data Analytics system.
- * From the external system, logs can be analyzed (to see if a code is 
+ * From the external system, logs can be analyzed (to see if a code is
  * still progressing normally, for instance).
  *
  * The API provided here does not do the transfer to the Analytics system
- * itself; instead it communicates with the thing (message broker, syslog, 
- * LDMSD, point-to-point communicator, or whatever else) that does the 
+ * itself; instead it communicates with the thing (message broker, syslog,
+ * LDMSD, point-to-point communicator, or whatever else) that does the
  * transfer off the cluster and then gets the data to a place where it
  * can be accessed from the Data Analytics system.
  *
  * The actual means by which log messages (or database rows) make it off
- * the compute cluster and into the external analytics system are hidden 
- * from the user by this library. 
+ * the compute cluster and into the external analytics system are hidden
+ * from the user by this library.
  *
  * Functions in this file:
  *****************
@@ -25,8 +25,8 @@
  *****************
  * daapLogRead()
  *
- *   Placeholder. Would provide the ability to read messages that 
- *   have been written by the application, **local to the node that is 
+ *   Placeholder. Would provide the ability to read messages that
+ *   have been written by the application, **local to the node that is
  *   calling the function**. Will be further developed if demand exists.
  *
  *****************
@@ -42,12 +42,6 @@
 
 static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#if defined __APPLE__ 
-#    define SYSLOGGER(level, args...) os_log(level, args)
-#else
-#    define SYSLOGGER(level, args...) vsyslog(level, args)
-#endif
-
 #if defined _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
 #   define USE_SNPRINTF 1
 #else
@@ -58,10 +52,10 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
  * which will then make its way to an off-cluster data analytics system (Tivan
  * on the turquoise network at LANL).
  * 'Log' can mean syslog or a direct connection to a message broker (RabbitMQ,
- * LDMS Streams, a point-to-point user process, etc), or we can just aggregate 
- * and write only when the threshold is reached. The method used is selected 
- * at build time by setting the appropriate macro (an option in CMake). 
- * The string is prepended with some syslog-type info, whether or not syslog 
+ * LDMS Streams, a point-to-point user process, etc), or we can just aggregate
+ * and write only when the threshold is reached. The method used is selected
+ * at build time by setting the appropriate macro (an option in CMake).
+ * The string is prepended with some syslog-type info, whether or not syslog
  * is the transport method - application name and hostname, for instance.
  *
  *   ***Note that daapLogWrite is subject to the same format string
@@ -69,7 +63,7 @@ static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
  *   untrusted callers.
  */
 int daapLogWrite(const char *message, ...) {
-    /* probably needs to be thread safe; or at least, callees 
+    /* probably needs to be thread safe; or at least, callees
      * must be thread safe */
     va_list args;
     char *influx_str;
@@ -107,7 +101,7 @@ int daapLogWrite(const char *message, ...) {
     tstamp = getmillisectime();
     // do some sanity checking on the data here?
 
-    influx_str = daapBuildInflux(tstamp, full_message);
+    influx_str = daapBuildInflux(tstamp, MESSAGE, full_message);
     if (influx_str == NULL) {
         goto end;
     }
@@ -134,8 +128,114 @@ int daapLogWrite(const char *message, ...) {
     }
     */
 
-    if (init_data.transport_type == SYSLOG) { 
-        SYSLOGGER(init_data.level, full_message, args);
+    if (init_data.transport_type == SYSLOG) {
+        DAAP_SYSLOG(init_data.level, influx_str);
+    } else if (init_data.transport_type == TCP) {
+        count = daapTCPLogWrite(influx_str, strlen(influx_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
+    }
+    free(influx_str);
+
+ end:
+    return DAAP_SUCCESS;
+}
+
+void daaplogwrite_(char *message, int len) {
+    message[len] = '\0';
+    daapLogWrite(message);
+}
+
+/* Sends a message of just "heartbeat" that can then be used in analytics system
+   to see status of individual processes that make up a running job and whether
+   all are reporting */
+int daapLogHeartbeat(void) {
+    /* probably needs to be thread safe; or callees must be thread safe */
+    char *influx_str;
+    unsigned long tstamp;
+    int count, msg_len;
+
+    if (!daapInit_called) {
+        errno = EPERM;
+        perror("Initialize with daapInit() before calling daapHeartbeat()");
+        return DAAP_ERROR;
+    }
+
+    tstamp = getmillisectime();
+    influx_str = daapBuildInflux(tstamp, HEARTBEAT, NULL);
+    if (influx_str == NULL) {
+        goto end;
+    }
+
+    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
+
+    if (init_data.transport_type == SYSLOG) {
+        DAAP_SYSLOG(init_data.level, influx_str);
+    } else if (init_data.transport_type == TCP) {
+        count = daapTCPLogWrite(influx_str, strlen(influx_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
+    }
+    free(influx_str);
+
+ end:
+    return DAAP_SUCCESS;
+}
+
+/* Sends a message of just "job start" to mark the point of a job's start */
+int daapLogJobStart(void) {
+    /* probably needs to be thread safe; or callees must be thread safe */
+    char *influx_str;
+    unsigned long tstamp;
+    int count, msg_len;
+
+    if (!daapInit_called) {
+        errno = EPERM;
+        perror("Initialize with daapInit() before calling daapJobStart()");
+        return DAAP_ERROR;
+    }
+
+    tstamp = getmillisectime();
+    influx_str = daapBuildInflux(tstamp, JOB_START, NULL);
+    if (influx_str == NULL) {
+        goto end;
+    }
+
+    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
+
+    if (init_data.transport_type == SYSLOG) {
+        DAAP_SYSLOG(init_data.level, influx_str);
+    } else if (init_data.transport_type == TCP) {
+        count = daapTCPLogWrite(influx_str, strlen(influx_str));
+        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
+    }
+    free(influx_str);
+
+ end:
+    return DAAP_SUCCESS;
+}
+
+/* Sends a message of just "job end" to mark the point of a job's end */
+int daapLogJobEnd(void) {
+    /* probably needs to be thread safe; or callees must be thread safe */
+    char *influx_str;
+    unsigned long tstamp;
+    int count, msg_len;
+
+    if (!daapInit_called) {
+        errno = EPERM;
+        perror("Initialize with daapInit() before calling daapJobEnd()");
+        return DAAP_ERROR;
+    }
+
+    tstamp = getmillisectime();
+    influx_str = daapBuildInflux(tstamp, JOB_END, NULL);
+    if (influx_str == NULL) {
+        goto end;
+    }
+
+    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
+
+    if (init_data.transport_type == SYSLOG) {
+        DAAP_SYSLOG(init_data.level, influx_str);
     } else if (init_data.transport_type == TCP) {
         count = daapTCPLogWrite(influx_str, strlen(influx_str));
         DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
@@ -146,19 +246,14 @@ int daapLogWrite(const char *message, ...) {
     return 0;
 }
 
-void daaplogwrite_(char *message, int len) {
-    message[len] = '\0';
-    daapLogWrite(message);
-}
-
 /* Function to write out an influx message to a log (followed by escape/control args),
  * which will then make its way to an off-cluster data analytics system (Tivan
  * on the turquoise network at LANL).
  * 'Log' can mean syslog or a direct connection to a message broker (RabbitMQ,
- * LDMS Streams, a point-to-point user process, etc), or we can just aggregate 
- * and write only when the threshold is reached. The method used is selected 
- * at build time by setting the appropriate macro (an option in CMake). 
- * The string is prepended with some syslog-type info, whether or not syslog 
+ * LDMS Streams, a point-to-point user process, etc), or we can just aggregate
+ * and write only when the threshold is reached. The method used is selected
+ * at build time by setting the appropriate macro (an option in CMake).
+ * The string is prepended with some syslog-type info, whether or not syslog
  * is the transport method - application name and hostname, for instance.
  *
  *   ***Note that daapLogRawWrite is subject to the same format string
@@ -166,7 +261,7 @@ void daaplogwrite_(char *message, int len) {
  *   untrusted callers.
  */
 int daapLogRawWrite(const char *message, ...) {
-    /* probably needs to be thread safe; or at least, callees 
+    /* probably needs to be thread safe; or at least, callees
      * must be thread safe */
     va_list args;
     char *influx_str;
@@ -209,8 +304,8 @@ int daapLogRawWrite(const char *message, ...) {
 
     DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
 
-    if (init_data.transport_type == SYSLOG) { 
-        SYSLOGGER(init_data.level, full_message, args);
+    if (init_data.transport_type == SYSLOG) {
+        DAAP_SYSLOG(init_data.level, influx_str);
     } else if (init_data.transport_type == TCP) {
         count = daapTCPLogWrite(influx_str, strlen(influx_str));
         DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
@@ -222,8 +317,8 @@ int daapLogRawWrite(const char *message, ...) {
 }
 
 /* Placeholder for now. Will only develop if there is interest.
- * Would provide the ability to read messages that have been written by 
- * the application, **local to the node that is calling the function**. 
+ * Would provide the ability to read messages that have been written by
+ * the application, **local to the node that is calling the function**.
  * Will be further developed if demand exists. */
 int daapLogRead(int key, int time_interval, int max_rows, char **row_array) {
 
@@ -233,19 +328,59 @@ int daapLogRead(int key, int time_interval, int max_rows, char **row_array) {
     return 0;
 }
 
-char *daapBuildInflux(long timestamp, char *message) {
+char *daapBuildInflux(long timestamp, msgtype msg_type, char *message) {
     int max_size = 2048;
     char *influx_msg = malloc(max_size);
     long long tstamp = timestamp * 1000000;
 
-    snprintf(influx_msg, max_size, 
-	     "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld", 
-	     APP_KEY, init_data.appname, 
-	     HOST_KEY, init_data.hostname,
-	     CLUSTER_NAME_KEY, init_data.cluster_name,
-	     MPI_RANK_KEY, init_data.mpi_rank,
-	     MSG_KEY, message,
-	     tstamp);
+    switch (msg_type)
+    {
+    case HEARTBEAT:
+        snprintf(influx_msg, max_size,
+	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=%s %lld",
+	        APP_KEY, init_data.appname,
+	        HOST_KEY, init_data.hostname,
+	        CLUSTER_NAME_KEY, init_data.cluster_name,
+	        MPI_RANK_KEY, init_data.mpi_rank,
+	        MSG_KEY, "heartbeat",
+	        tstamp);
+        break;
+    case JOB_START:
+        snprintf(influx_msg, max_size,
+	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
+	        APP_KEY, init_data.appname,
+	        HOST_KEY, init_data.hostname,
+	        CLUSTER_NAME_KEY, init_data.cluster_name,
+	        MPI_RANK_KEY, init_data.mpi_rank,
+	        MSG_KEY, "job start",
+	        tstamp);
+        break;
+    case JOB_END:
+        snprintf(influx_msg, max_size,
+	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
+	        APP_KEY, init_data.appname,
+	        HOST_KEY, init_data.hostname,
+	        CLUSTER_NAME_KEY, init_data.cluster_name,
+	        MPI_RANK_KEY, init_data.mpi_rank,
+	        MSG_KEY, "job end",
+	        tstamp);
+        break;
+    case MESSAGE:
+        snprintf(influx_msg, max_size,
+	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
+	        APP_KEY, init_data.appname,
+	        HOST_KEY, init_data.hostname,
+	        CLUSTER_NAME_KEY, init_data.cluster_name,
+	        MPI_RANK_KEY, init_data.mpi_rank,
+	        MSG_KEY, message,
+	        tstamp);
+        break;
+    default:
+        snprintf(influx_msg, max_size,
+            "Error in daapBuildInflux(), unknown message type");
+        break;
+    }
+
 
     return influx_msg;
 }
@@ -254,8 +389,8 @@ char *daapBuildRawInflux(char *message) {
     int max_size = 2048;
     char *influx_msg = malloc(max_size);
 
-    snprintf(influx_msg, max_size, 
-	     "daap,%s", 
+    snprintf(influx_msg, max_size,
+	     "daap,%s",
 	     message);
 
     return influx_msg;
