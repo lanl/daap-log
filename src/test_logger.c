@@ -39,13 +39,26 @@ int main( int argc, char *argv[] ) {
       usage();
     }
 
-    if( (ret_val = daapInit("logger", log_level, DAAP_AGG_OFF, transport_type)) != 0 ) {
+    if ( (ret_val = daapInit("logger", log_level, DAAP_AGG_OFF, transport_type)) != 0 ) {
         return ret_val;
     }
 
+    if ( (ret_val = daapLogJobStart()) != 0 ) {
+	perror("Error in call to daapLogJobStart");
+    }
+
+    if ( (ret_val = daapLogHeartbeat()) != 0 ) {
+	perror("Error in call to daapLogHeartbeat");
+    }
+
+
     ret_val = daapLogWrite("daapLogWrite logging correctly, %n user id = %d.", &uid, uid);
-    if( ret_val != 0 ) {
+    if ( ret_val != 0 ) {
         perror("Error in call to daapLogWrite");
+    }
+
+    if ( (ret_val = daapLogJobEnd()) != 0 ) {
+	perror("Error in call to daapLogJobEnd");
     }
 
     daapFinalize();
