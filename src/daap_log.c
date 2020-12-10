@@ -18,9 +18,26 @@
  * the compute cluster and into the external analytics system are hidden
  * from the user by this library.
  *
- * Functions in this file:
+ * API functions in this file:
  *****************
  * daapLogWrite()
+ *
+ * Writes out a user-specified message, with format specifier capability.
+ * Note that this is not a secure function and contains the same format vulnerabilities
+ * as calling printf() and should not be used in untrusted environments.
+ *
+ *****************
+ * daapLogHeartbeat()
+ * daapLogJobStart()
+ * daapLogJobEnd()
+ *
+ * Each of these calls sends a special message indicating an active job heartbeat, the start
+ * of a job, and the end of a job, respectively. daapLogJobStart() and daapLogJobEnd()
+ * should only be called by a user if the environment variable DAAP_DECOUPLE is set to a
+ * nonzero value.
+ * Otherwise, daapLogJobStart() is called automatically by daapInit(), and daapLogJobEnd() by
+ * daapFinalize().
+ *
  *
  *****************
  * daapLogRead()
@@ -31,8 +48,8 @@
  *
  *****************
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
- * Original author: Charles Shereda, cpshereda@lanl.gov
- * Additional authors: Hugh Greenberg, hng@lanl.gov
+ * Authors: Charles Shereda, cpshereda@lanl.gov
+ *          Hugh Greenberg, hng@lanl.gov
  */
 
 #include <string.h>
@@ -101,7 +118,7 @@ int daapLogWrite(const char *message, ...) {
     tstamp = getmillisectime();
     // do some sanity checking on the data here?
 
-    influx_str = daapBuildInflux(tstamp, MESSAGE, full_message);
+    influx_str = daapBuildInflux(tstamp, full_message);
     if (influx_str == NULL) {
         goto end;
     }
@@ -145,105 +162,21 @@ void daaplogwrite_(char *message, int len) {
     daapLogWrite(message);
 }
 
-/* Sends a message of just "heartbeat" that can then be used in analytics system
+/* Sends a heartbeat message that can then be used in analytics system
    to see status of individual processes that make up a running job and whether
    all are reporting */
 int daapLogHeartbeat(void) {
-    /* probably needs to be thread safe; or callees must be thread safe */
-    char *influx_str;
-    unsigned long tstamp;
-    int count, msg_len;
-
-    if (!daapInit_called) {
-        errno = EPERM;
-        perror("Initialize with daapInit() before calling daapHeartbeat()");
-        return DAAP_ERROR;
-    }
-
-    tstamp = getmillisectime();
-    influx_str = daapBuildInflux(tstamp, HEARTBEAT, NULL);
-    if (influx_str == NULL) {
-        goto end;
-    }
-
-    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
-
-    if (init_data.transport_type == SYSLOG) {
-        DAAP_SYSLOG(init_data.level, influx_str);
-    } else if (init_data.transport_type == TCP) {
-        count = daapTCPLogWrite(influx_str, strlen(influx_str));
-        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
-    }
-    free(influx_str);
-
- end:
-    return DAAP_SUCCESS;
+    return daapLogWrite("__daap_heartbeat");
 }
 
-/* Sends a message of just "job start" to mark the point of a job's start */
+/* Sends a message to mark the point of a job's start */
 int daapLogJobStart(void) {
-    /* probably needs to be thread safe; or callees must be thread safe */
-    char *influx_str;
-    unsigned long tstamp;
-    int count, msg_len;
-
-    if (!daapInit_called) {
-        errno = EPERM;
-        perror("Initialize with daapInit() before calling daapJobStart()");
-        return DAAP_ERROR;
-    }
-
-    tstamp = getmillisectime();
-    influx_str = daapBuildInflux(tstamp, JOB_START, NULL);
-    if (influx_str == NULL) {
-        goto end;
-    }
-
-    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
-
-    if (init_data.transport_type == SYSLOG) {
-        DAAP_SYSLOG(init_data.level, influx_str);
-    } else if (init_data.transport_type == TCP) {
-        count = daapTCPLogWrite(influx_str, strlen(influx_str));
-        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
-    }
-    free(influx_str);
-
- end:
-    return DAAP_SUCCESS;
+    return daapLogWrite("__daap_jobstart");
 }
 
-/* Sends a message of just "job end" to mark the point of a job's end */
+/* Sends a message to mark the point of a job's end */
 int daapLogJobEnd(void) {
-    /* probably needs to be thread safe; or callees must be thread safe */
-    char *influx_str;
-    unsigned long tstamp;
-    int count, msg_len;
-
-    if (!daapInit_called) {
-        errno = EPERM;
-        perror("Initialize with daapInit() before calling daapJobEnd()");
-        return DAAP_ERROR;
-    }
-
-    tstamp = getmillisectime();
-    influx_str = daapBuildInflux(tstamp, JOB_END, NULL);
-    if (influx_str == NULL) {
-        goto end;
-    }
-
-    DEBUG_OUTPUT(("Complete influx string: %s", influx_str));
-
-    if (init_data.transport_type == SYSLOG) {
-        DAAP_SYSLOG(init_data.level, influx_str);
-    } else if (init_data.transport_type == TCP) {
-        count = daapTCPLogWrite(influx_str, strlen(influx_str));
-        DEBUG_OUTPUT(("Writing message: %s, written: %d", influx_str, count));
-    }
-    free(influx_str);
-
- end:
-    return 0;
+    return daapLogWrite("__daap_jobend");
 }
 
 /* Function to write out an influx message to a log (followed by escape/control args),
@@ -328,59 +261,19 @@ int daapLogRead(int key, int time_interval, int max_rows, char **row_array) {
     return 0;
 }
 
-char *daapBuildInflux(long timestamp, msgtype msg_type, char *message) {
+char *daapBuildInflux(long timestamp, char *message) {
     int max_size = 2048;
     char *influx_msg = malloc(max_size);
     long long tstamp = timestamp * 1000000;
 
-    switch (msg_type)
-    {
-    case HEARTBEAT:
-        snprintf(influx_msg, max_size,
-	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
-	        APP_KEY, init_data.appname,
-	        HOST_KEY, init_data.hostname,
-	        CLUSTER_NAME_KEY, init_data.cluster_name,
-	        MPI_RANK_KEY, init_data.mpi_rank,
-	        MSG_KEY, "heartbeat",
-	        tstamp);
-        break;
-    case JOB_START:
-        snprintf(influx_msg, max_size,
-	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
-	        APP_KEY, init_data.appname,
-	        HOST_KEY, init_data.hostname,
-	        CLUSTER_NAME_KEY, init_data.cluster_name,
-	        MPI_RANK_KEY, init_data.mpi_rank,
-	        MSG_KEY, "job start",
-	        tstamp);
-        break;
-    case JOB_END:
-        snprintf(influx_msg, max_size,
-	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
-	        APP_KEY, init_data.appname,
-	        HOST_KEY, init_data.hostname,
-	        CLUSTER_NAME_KEY, init_data.cluster_name,
-	        MPI_RANK_KEY, init_data.mpi_rank,
-	        MSG_KEY, "job end",
-	        tstamp);
-        break;
-    case MESSAGE:
-        snprintf(influx_msg, max_size,
-	        "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
-	        APP_KEY, init_data.appname,
-	        HOST_KEY, init_data.hostname,
-	        CLUSTER_NAME_KEY, init_data.cluster_name,
-	        MPI_RANK_KEY, init_data.mpi_rank,
-	        MSG_KEY, message,
-	        tstamp);
-        break;
-    default:
-        snprintf(influx_msg, max_size,
-            "Error in daapBuildInflux(), unknown message type");
-        break;
-    }
-
+    snprintf(influx_msg, max_size,
+	    "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
+	    APP_KEY, init_data.appname,
+	    HOST_KEY, init_data.hostname,
+	    CLUSTER_NAME_KEY, init_data.cluster_name,
+	    MPI_RANK_KEY, init_data.mpi_rank,
+	    MSG_KEY, message,
+	    tstamp);
 
     return influx_msg;
 }

@@ -169,7 +169,7 @@ int daapMetricDestroy(metric_t metric);
 int daapMetricWrite(metric_t metric);
 
 /* Builds an influxdb string */
-char *daapBuildInflux(long timestamp, msgtype msg_type, char *message);
+char *daapBuildInflux(long timestamp, char *message);
 
 /* Builds an influxdb string without tags */
 char *daapBuildRawInflux(char *message);
