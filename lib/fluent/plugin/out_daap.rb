@@ -63,13 +63,13 @@ module Fluent
             new_rec = {}
             fields = child['fields']
             #Heartbeat, job start, job end
-            if fields.has_key?('message') and (fields['message'] == "running" or fields['message'] == "heartbeat")
+            if fields.has_key?('message') and (fields['message'] == "__daap_heartbeat" or fields['message' == "running")
               new_rec['metric'] = 'heartbeat'
               new_rec['val'] = 1
-            elsif fields.has_key?('message') and fields['message'].index(/job start/) != nil
+            elsif fields.has_key?('message') and (fields['message'] == "__daap_jobstart" or fields['message'].index(/job start/) != nil)
               new_rec['metric'] = 'job_state'
               new_rec['state'] = 'start'
-            elsif fields.has_key?('message') and fields['message'].index(/job end/) != nil 
+            elsif fields.has_key?('message') and (fields['message'] == "__daap_jobend" or fields['message'].index(/job end/) != nil)
               new_rec['metric'] = 'job_state'
               new_rec['state'] = 'end'
             end
