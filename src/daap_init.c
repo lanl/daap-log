@@ -199,7 +199,13 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         exit(1);
     }
 
-    /* Send job start message to message broker/syslog if DAAP_DECOUPLE env var not set or set to 0. */
+    /* Send job start message to message broker/syslog if DAAP_DECOUPLE env var 
+       not set or set to 0 and the mpi rank is 0 */
+    if (  getenv("MPI_COMM_RANK") == NULL || 
+	  !(strcmp(getenv("MPI_COMM_RANK"), "0")) ) {
+	return ret_val;
+    }
+
     if( getenv("DAAP_DECOUPLE") == NULL) {
         ret_val += daapLogJobStart();
     }

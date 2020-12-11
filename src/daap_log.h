@@ -142,6 +142,9 @@ void daaplogwrite_(char *message, int len);
 /* Function to log a heartbeat from an application process */
 int daapLogHeartbeat(void);
 
+/* Fortran version of daapLogHeartbeat */
+void daaplogheartbeat_(void);
+
 /* Function to log a job start from an application process */
 int daapLogJobStart(void);
 

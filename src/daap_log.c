@@ -169,6 +169,10 @@ int daapLogHeartbeat(void) {
     return daapLogWrite("__daap_heartbeat");
 }
 
+void daaplogheartbeat_(void) {
+  daapLogHeartbeat();
+}
+
 /* Sends a message to mark the point of a job's start */
 int daapLogJobStart(void) {
     return daapLogWrite("__daap_jobstart");
