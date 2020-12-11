@@ -1,4 +1,4 @@
-/* 
+/*
  * Data Analytics Application Profiling API
  *
  * Functions in this file:
@@ -6,13 +6,13 @@
  * daapInit(const char *app_name, int level)
  *   Populates some global variables with initialized information
  *   using the function parameters and data specific to the node/job,
- *   like hostname and job_id. 
+ *   like hostname and job_id.
  *
  *****************
  * daapFinalize(void)
- *   Cleans up / depopulates / dallocates (as required) structures 
- *   populated by daapInit. 
- * 
+ *   Cleans up / depopulates / dallocates (as required) structures
+ *   populated by daapInit.
+ *
  *****************
  *
  * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
@@ -39,8 +39,8 @@ extern void daapShutdownSSL();
 /*
  * This gethostname wrapper does not populate the full-length hostname in
  * those rare cases where it is too long for the buffer. It does, however,
- * guarantee a null-terminated hostname, even if it's truncated. It also 
- * tries again in the case where gethostname returns an error because the 
+ * guarantee a null-terminated hostname, even if it's truncated. It also
+ * tries again in the case where gethostname returns an error because the
  * buffer is initially too short.
  * Note: only call from thread-safe regions.
  */
@@ -83,7 +83,7 @@ static int daap_gethostname(char **hostname) {
              *             implementations, this can be because the
              *             buffer was too small.
              * count == (length-1): The result *may* be truncated;
-             *                      we can't know for sure and 
+             *                      we can't know for sure and
              *                      should resize the buffer.
              *
              * If it's one of these cases, we'll fall through to
@@ -140,12 +140,10 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         pthread_mutex_unlock(&init_mutex);
         return DAAP_SUCCESS;
     }
-    //DEBUG_OUTPUT(("Debug output"));
-    //PRINT_OUTPUT(stdout, ("Print output"));
-    int ret_val = 0;
+    int ret_val = DAAP_SUCCESS;
     size_t envvar_len = 0;
 
-    /* note that app_name is a user-provided value rather than 
+    /* note that app_name is a user-provided value rather than
      * using the command line value */
     init_data.appname = calloc(strlen(app_name) + 1, 1);
     strcpy(init_data.appname, app_name);
@@ -156,7 +154,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
     }
     else {
-        /* allocate memory for and populate init_data.hostname with the 
+        /* allocate memory for and populate init_data.hostname with the
          * hostname by calling daap_gethostname().*/
         ret_val = daap_gethostname(&init_data.hostname);
         if( ret_val != DAAP_SUCCESS ) {
@@ -169,7 +167,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     /* set daap_hostname[] for purposes of printing output (not part of API) */
     strncpy(daap_hostname, init_data.hostname, LOCAL_MAXHOSTNAMELEN);
     daap_hostname[LOCAL_MAXHOSTNAMELEN - 1] = '\0';
-    /* get cluster name */ 
+    /* get cluster name */
     if( getenv("SLURM_CLUSTER_NAME") != NULL  ) {
         envvar_len = strlen(getenv("SLURM_CLUSTER_NAME"));
         init_data.cluster_name = calloc(envvar_len + 1, 1);
@@ -192,13 +190,21 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         daapInitializeSSL();
 
     }
-    
+
     daapInit_called = true;
     pthread_mutex_unlock(&init_mutex);
 
     if (ret_val < 0) {
         perror("Fatal error");
         exit(1);
+    }
+
+    /* Send job start message to message broker/syslog if DAAP_DECOUPLE env var not set or set to 0. */
+    if( getenv("DAAP_DECOUPLE") == NULL) {
+        ret_val += daapLogJobStart();
+    }
+    else if (strcmp(getenv("DAAP_DECOUPLE"), "0") == 0) {
+        ret_val += daapLogJobStart();
     }
 
     return ret_val;
@@ -211,6 +217,15 @@ void daapinit_(char* app_name, int len) {
 
 /* Free memory from allocated components of init_data */
 int daapFinalize(void) {
+    int ret_val;
+
+    /* Send job end message to message broker/syslog if DAAP_DECOUPLE env var not set or set to 0. */
+    if( getenv("DAAP_DECOUPLE") == NULL) {
+        ret_val = daapLogJobEnd();
+    }
+    else if (strcmp(getenv("DAAP_DECOUPLE"), "0") == 0) {
+        ret_val = daapLogJobEnd();
+    }
 
     pthread_mutex_lock(&finalize_mutex);
 
@@ -221,7 +236,7 @@ int daapFinalize(void) {
     free(init_data.cluster_name);
 
     pthread_mutex_unlock(&finalize_mutex);
-    return DAAP_SUCCESS;
+    return ret_val;
 }
 
 void daapfinalize_(void) {
