@@ -201,8 +201,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 
     /* Send job start message to message broker/syslog if DAAP_DECOUPLE env var 
        not set or set to 0 and the mpi rank is 0 */
-    if (  getenv("MPI_COMM_RANK") == NULL || 
-	  !(strcmp(getenv("MPI_COMM_RANK"), "0")) ) {
+    if (  getenv("PMPI_RANK") == NULL || 
+	  !(strcmp(getenv("PMPI_RANK"), "0")) ) {
 	return ret_val;
     }
 
@@ -225,14 +225,6 @@ void daapinit_(char* app_name, int len) {
 int daapFinalize(void) {
     int ret_val;
 
-    /* Send job end message to message broker/syslog if DAAP_DECOUPLE env var not set or set to 0. */
-    if( getenv("DAAP_DECOUPLE") == NULL) {
-        ret_val = daapLogJobEnd();
-    }
-    else if (strcmp(getenv("DAAP_DECOUPLE"), "0") == 0) {
-        ret_val = daapLogJobEnd();
-    }
-
     pthread_mutex_lock(&finalize_mutex);
 
     daapShutdownSSL();
@@ -240,6 +232,20 @@ int daapFinalize(void) {
     free(init_data.hostname);
     free(init_data.appname);
     free(init_data.cluster_name);
+
+    if (  getenv("PMPI_RANK") == NULL || 
+	  !(strcmp(getenv("PMPI_RANK"), "0")) ) {
+        pthread_mutex_unlock(&finalize_mutex);
+	return ret_val;
+    }
+
+    /* Send job end message to message broker/syslog if DAAP_DECOUPLE env var not set or set to 0. */
+    if( getenv("DAAP_DECOUPLE") == NULL) {
+        ret_val = daapLogJobEnd();
+    }
+    else if (strcmp(getenv("DAAP_DECOUPLE"), "0") == 0) {
+        ret_val = daapLogJobEnd();
+    }
 
     pthread_mutex_unlock(&finalize_mutex);
     return ret_val;
