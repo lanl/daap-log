@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 /* BEGIN_C_DECLS is used to prevent C++ compilers from mangling names. */
 #undef BEGIN_C_DECLS
@@ -113,6 +114,7 @@ extern daap_init_t init_data;
 
 #define DAAP_MAX_MSG_LEN 8096
 
+extern bool daapRank_zero;
 
 BEGIN_C_DECLS
 /*   Populates some global variables with initialized information
