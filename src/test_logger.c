@@ -44,7 +44,7 @@ int main( int argc, char *argv[] ) {
         return ret_val;
     }
 
-    if (strcmp(getenv("DAAP_DECOUPLE"), "1") == 0) {
+    if (getenv("DAAP_DECOUPLE") != NULL && strcmp(getenv("DAAP_DECOUPLE"), "1") == 0) {
         if ( (ret_val = daapLogJobStart()) != 0 ) {
             perror("Error in call to daapLogJobStart");
         }
@@ -61,7 +61,7 @@ int main( int argc, char *argv[] ) {
     }
 
 
-    if (strcmp(getenv("DAAP_DECOUPLE"), "1") == 0) {
+    if (getenv("DAAP_DECOUPLE") != NULL && strcmp(getenv("DAAP_DECOUPLE"), "1") == 0) {
         if ( (ret_val = daapLogJobEnd()) != 0 ) {
             perror("Error in call to daapLogJobEnd");
         }
