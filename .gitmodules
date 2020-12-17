@@ -1,0 +1,3 @@
+[submodule "src/tools/daap-launch"]
+	path = src/tools/daap-launch
+	url = git@git.lanl.gov:tivan-acceptance-testing/daap-launch.git
