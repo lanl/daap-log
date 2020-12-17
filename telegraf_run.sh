@@ -1,13 +1,3 @@
-#!/bin/bash
-
-#SBATCH --job-name=SNAP_XROADS_4nodes_8tasks
-#SBATCH --output=SNAP_XROADS_%j.out
-#SBATCH --nodes=4              # Number of nodes
-#SBATCH --ntasks=8             # Number of MPI ranks
-#SBATCH --ntasks-per-node=2    # Number of MPI ranks per node
-#SBATCH --ntasks-per-socket=1  # Number of tasks per processor socket on the node
-#SBATCH --time=00:20:00      # Walltime in hh:mm:ss or d-hh:mm:ss
-
 function modify_config {
     CONF_FILE="$1"
     sed -i.bkup -e "s/job_id = \"1\"/job_id = \"${SLURM_JOBID}\"/" "${CONF_FILE}"
@@ -18,6 +8,9 @@ function modify_config {
 function launch_telegraf {
     BASE="/users/hng"
     TELEGRAF_BASE="$BASE/telegraf"
+    date=`date +%s`
+    TELEGRAF_TMP="$BASE/telegraf-$date"
+    mkdir "$TELEGRAF_TMP"
     TELEGRAF_EXEC="$TELEGRAF_BASE/telegraf"
     SLURM_HOSTS=`/usr/bin/scontrol show hostname "$SLURM_JOB_NODELIST" | tr '\n' "," | sed -e 's/,$//'`
     rm -f ${TELEGRAF_BASE}/telegraf-agg-*.conf
@@ -36,15 +29,15 @@ function launch_telegraf {
 	then
 	    servers[$((servers_array_len))]=${host_ip}
 	    #run server fluent bit
-        CONF_FILE="${TELEGRAF_BASE}/telegraf-agg-0.conf"
+        CONF_FILE="${TELEGRAF_TMP}/telegraf-agg-0.conf"
         if [ ! -f "${CONF_FILE}" ]
         then
           cp -f ${TELEGRAF_BASE}/telegraf-agg.conf ${CONF_FILE}
 	  modify_config "${CONF_FILE}"
-          rm -f ${TELEGRAF_BASE}/telegraf-agg-0.conf.bkup*
+          rm -f ${TELEGRAF_TMP}/telegraf-agg-0.conf.bkup*
         fi
         echo "Starting aggregator on: ${h}"
-	    ssh ${h} ${TELEGRAF_EXEC} --config "$TELEGRAF_BASE/telegraf-agg-0.conf" --debug &
+	    ssh ${h} ${TELEGRAF_EXEC} --config "$TELEGRAF_TMP/telegraf-agg-0.conf" &
 	else
             if [ $FIRST_CLIENT -eq 0 ]
             then
@@ -55,16 +48,16 @@ function launch_telegraf {
 	    index=`awk -v min=0 -v max=$((servers_array_len-1)) 'BEGIN{srand(); print int(min+rand()*(max-min+1))}'`
 	    server=${servers[$index]}
 	    #run client fluent bit
-        CONF_FILE="${TELEGRAF_BASE}/telegraf-client-${index}.conf"
+        CONF_FILE="${TELEGRAF_TMP}/telegraf-client-${index}.conf"
         if [ ! -f "${CONF_FILE}" ]
         then
             cp -f ${TELEGRAF_BASE}/telegraf-client.conf "${CONF_FILE}"
             sed -i.bkup -e "s/1\.1\.1\.1/${server}/" ${CONF_FILE}
 	    modify_config "${CONF_FILE}" 
-            rm -f ${TELEGRAF_BASE}/telegraf-client-${index}.conf.bkup* 
+            rm -f ${TELEGRAF_TMP}/telegraf-client-${index}.conf.bkup* 
         fi
         echo "Starting client on: ${h}"
-	    ssh ${h} ${TELEGRAF_EXEC} --config ${TELEGRAF_BASE}/telegraf-client-${index}.conf &
+	    ssh ${h} ${TELEGRAF_EXEC} --config "${TELEGRAF_TMP}/telegraf-client-${index}.conf" &
 	fi
     done
 }
@@ -84,18 +77,3 @@ function kill_telegraf {
     done
 }
 
-date;hostname;pwd
-kill_telegraf
-echo $SLURM_JOBID
-#Launch fluent bit on the compute nodes
-launch_telegraf
-#Load modules
-module load intel
-module load intel-mpi
-
-sleep 20 && srun -N 4 -n 8 -c 16 $BASE/2018-xroads-trinity-snap/snap-src/isnap /users/hng/2018-xroads-trinity-snap/inputs/inh0001t4 /users/hng/2018-xroads-trinity-snap/output
-sleep 60
-rm -f ${TELEGRAF_BASE}/telegraf-agg-*.conf
-rm -f ${TELEGRAF_BASE}/telegraf-client-*.conf
-kill_telegraf
-date
