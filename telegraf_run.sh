@@ -25,6 +25,13 @@ function launch_telegraf {
     do
 	host_ip=`cat /etc/hosts | grep "[[:space:]]${h}\." | cut -f 1 -d$'\t'`
 	servers_array_len=${#servers[@]}
+    echo $num_servers
+    if [ $num_servers == 0 ]
+    then
+      num_servers=1
+    fi
+
+    echo $num_servers
 	if [ $servers_array_len != $num_servers ]
 	then
 	    servers[$((servers_array_len))]=${host_ip}
