@@ -26,27 +26,19 @@ module Fluent
         super
       end
 
-      #Clean the hostname
       def clean_host(host)
         host = host.gsub(/.localdomain/, '')
         return host
       end
 
-      #Deep copy hash
-      def deep_copy(o)
-        Marshal.load(Marshal.dump(o))
-      end
-
-      #Process each incoming message
       def process(tag, es)
         emit_tag = @tag
         es_out = MultiEventStream.new
         metrics = Array.new
         es.each do |time, record|
           next unless record.key?("metrics")
-          jsn = record['metrics']
           #Go through the json and pick out what we want
-          jsn.each do |child|
+          record["metrics"].each do |child|
             if not child.has_key?('fields')
               next
             end
@@ -54,24 +46,66 @@ module Fluent
               next
             end
             
-            metric_name = child['name']          
+            name = child['name']
             if not ['infiniband','cpu', 'mem', 
-                    'daap'].include?(metric_name)
+                    'SNAP_XROADS', 
+                    'snap_pavilion_parser'].include?(name)
               next
             end
 
             new_rec = {}
             fields = child['fields']
-            #Heartbeat, job start, job end
-            if fields.has_key?('message') and (fields['message'] == "__daap_heartbeat" or fields['message'] == "running")
+            #Infiniband errors
+            if name == 'infiniband'
+              new_rec['metric'] = 'infiniband_errors'
+              ["link_downed", "link_error_recovery", 
+               "local_link_integrity_errors", "port_rcv_constraint_errors", 
+               "port_rcv_errors", "port_xmit_discards", 
+               "port_rcv_remote_physical_errors", "port_rcv_switch_relay_errors", 
+               "port_xmit_constraint_errors"].each do |item|
+                new_rec[item] = fields[item]
+              end
+
+              new_rec['device'] = child['tags']['device']
+            end
+            #CPU Usage
+            if name == 'cpu'
+              new_rec['metric'] = 'cpu_usage'
+              ["usage_guest", "usage_guest_nice", 
+               "usage_idle", "usage_iowait", 
+               "usage_irq", "usage_nice", 
+               "usage_softirq", "usage_steal", 
+               "usage_system", "usage_user"].each do |item|
+                new_rec[item] = fields[item]
+              end
+            end
+            #MEM usage
+            if name == 'mem'
+              new_rec['metric'] = 'mem_usage'
+              ["active", "inactive", 
+               "vmalloc_total", "vmalloc_used", 
+               "used_percent"].each do |item|
+                new_rec[item] = fields[item]
+              end
+            end
+            if name == 'snap_pavilion_parser'
+              new_rec['metric'] = 'snap_pavilion_run'
+              ["job_result", 
+               "job_started", "job_ended"].each do |item|
+                new_rec[item] = child['tags'][item]
+              end
+              ["execution_time", "grind_time", 
+               "job_duration"].each do |item|
+                new_rec[item] = child['tags'][item].to_f
+              end
+              ["job_nodes", "job_max_mem",
+               "allocated_words", "job_cpu_total"].each do |item|
+                new_rec[item] = child['tags'][item].to_i
+              end
+            end
+            #Heartbeat
+            if fields.has_key?('message') and fields['message'] == "running"
               new_rec['metric'] = 'heartbeat'
-              new_rec['val'] = 1
-            elsif fields.has_key?('message') and (fields['message'] == "__daap_jobstart" or fields['message'].index(/job start/) != nil)
-              new_rec['metric'] = 'job_state'
-              new_rec['state'] = 'start'
-            elsif fields.has_key?('message') and (fields['message'] == "__daap_jobend" or fields['message'].index(/job end/) != nil)
-              new_rec['metric'] = 'job_state'
-              new_rec['state'] = 'end'
             end
             #Add common fields
             new_rec['host'] = clean_host(child['tags']['host'])
@@ -97,48 +131,10 @@ module Fluent
                 end
               end            
             end
-            #Infiniband errors
-            if metric_name == 'infiniband'
-              new_rec['metric'] = 'infiniband_errors'
-              new_rec['device'] = child['tags']['device']
-              ["link_downed", "link_error_recovery", 
-               "local_link_integrity_errors", "port_rcv_constraint_errors", 
-               "port_rcv_errors", "port_xmit_discards", 
-               "port_rcv_remote_physical_errors", "port_rcv_switch_relay_errors", 
-               "port_xmit_constraint_errors"].each do |item|
-                rec = deep_copy(new_rec)
-                rec['type'] = item
-                rec['val'] = fields[item]
-                metrics.push(rec)
-              end
-            #CPU Usage
-            elsif metric_name == 'cpu'
-              new_rec['metric'] = 'cpu_usage'
-              ["usage_guest", "usage_guest_nice", 
-               "usage_idle", "usage_iowait", 
-               "usage_irq", "usage_nice", 
-               "usage_softirq", "usage_steal", 
-               "usage_system", "usage_user"].each do |item|
-                rec = deep_copy(new_rec)
-                rec['type'] = item.gsub(/usage_/, '')
-                rec['val'] = fields[item]
-                metrics.push(rec)
-              end
-            #MEM usage
-            elsif metric_name == 'mem'
-              new_rec['metric'] = 'mem_usage'
-              ["active", "inactive", 
-               "vmalloc_total", "vmalloc_used", 
-               "used_percent"].each do |item|
-                rec = deep_copy(new_rec)
-                rec['type'] = item.gsub(/usage_/, '')
-                rec['val'] = fields[item]
-                metrics.push(rec)
-              end
-            else
-              #Add to queue
-              metrics.push(new_rec)
-            end
+            
+            #Add to queue
+            puts new_rec
+            metrics.push(new_rec)
           end
         end
 
@@ -148,9 +144,7 @@ module Fluent
         #Send records
         metrics.each do |m|
           ts = m["timestamp"]
-          if m['metric'] == 'job_state'
-            m["timestamp"] = Time.at(ts).iso8601
-          end
+          m.delete("timestamp")
           es_out.add(ts, m)
         end
 
