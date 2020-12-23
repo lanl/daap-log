@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=pavilion_parse
+#SBATCH --job-name=snap_pavilion_parse
 #SBATCH --output=PAVILION_PARSE_%j.out
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1

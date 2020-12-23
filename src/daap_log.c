@@ -33,10 +33,7 @@
  *
  * Each of these calls sends a special message indicating an active job heartbeat, the start
  * of a job, and the end of a job, respectively. daapLogJobStart() and daapLogJobEnd()
- * should only be called by a user if the environment variable DAAP_DECOUPLE is set to a
- * nonzero value.
- * Otherwise, daapLogJobStart() is called automatically by daapInit(), and daapLogJobEnd() by
- * daapFinalize().
+ * should only be called by rank 0.
  *
  *
  *****************
@@ -169,8 +166,9 @@ int daapLogHeartbeat(void) {
     return daapLogWrite("__daap_heartbeat");
 }
 
+/* Fortran interface for daapLogHeartbeat */
 void daaplogheartbeat_(void) {
-  daapLogHeartbeat();
+    daapLogHeartbeat();
 }
 
 /* Sends a message to mark the point of a job's start */
@@ -178,9 +176,19 @@ int daapLogJobStart(void) {
     return daapLogWrite("__daap_jobstart");
 }
 
+/* Fortran interface for daapLogJobStart */
+void daaplogjobstart_(void) {
+    daapLogJobStart();
+}
+
 /* Sends a message to mark the point of a job's end */
 int daapLogJobEnd(void) {
     return daapLogWrite("__daap_jobend");
+}
+
+/* Fortran interface for daapLogJobEnd */
+void daaplogjobend_(void) {
+    daapLogJobEnd();
 }
 
 /* Function to write out an influx message to a log (followed by escape/control args),

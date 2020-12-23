@@ -83,11 +83,11 @@ def main():
 
         job_result = jobj["result"]
         #Format the message in influxdb format
-        job_info_msg = ("daap,sys_name=%s,job_name=%s,job_id=%s,job_started=%s," + \
-                       "job_ended=%s,job_duration=%f," +\
+        job_info_msg = (",sys_name=%s,job_name=%s,job_id=%s,job_started=%s," + \
+                       "job_ended=%s,job_duration=%f,job_result=%s," +\
                        "job_user=%s,job_nodes=%s,job_cpu_total=%s,job_max_mem=%s") %\
                        (sys_name, job_name, job_id, job_started, job_ended, 
-                        job_duration, job_user, job_nodes, 
+                        job_duration, job_result, job_user, job_nodes, 
                         job_cpu_total, job_max_mem)
 
         #Snap specific fields
@@ -109,9 +109,9 @@ def main():
 
             job_info_msg += (",execution_time=%s,grind_time=%s,allocated_words=%s") %\
                             (execution_time, grind_time, allocated_words)
-
+            job_info_msg = "snap_pavilion_parser" + job_info_msg
         
-        job_info_msg += " message=\"daap_pavilion_parser\" " + str(int(time.time() * 1000000))
+        job_info_msg += " message=\"daap_pavilion_parser\" " + str(long(time.time()) * 1000000000)
         sendRecord(cert_dir, job_info_msg + "\n\n")
 
 if __name__ == '__main__':
