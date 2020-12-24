@@ -6,7 +6,13 @@ function modify_config {
 }
 
 function launch_telegraf {
-    BASE="/users/hng"
+    # NOTE: If we can gaurantee that telegraf base will be in home this can be simplified
+    #       Else, pass telegraf's parent directory as argument 1
+    if [ $# -ne 0 ]; then
+      BASE=$1
+    else
+      BASE=$HOME
+    fi
     TELEGRAF_BASE="$BASE/telegraf"
     date=`date +%s`
     TELEGRAF_TMP="$BASE/telegraf-$date"
@@ -60,8 +66,8 @@ function launch_telegraf {
         then
             cp -f ${TELEGRAF_BASE}/telegraf-client.conf "${CONF_FILE}"
             sed -i.bkup -e "s/1\.1\.1\.1/${server}/" ${CONF_FILE}
-	    modify_config "${CONF_FILE}" 
-            rm -f ${TELEGRAF_TMP}/telegraf-client-${index}.conf.bkup* 
+	    modify_config "${CONF_FILE}"
+            rm -f ${TELEGRAF_TMP}/telegraf-client-${index}.conf.bkup*
         fi
         echo "Starting client on: ${h}"
 	    ssh ${h} ${TELEGRAF_EXEC} --config "${TELEGRAF_TMP}/telegraf-client-${index}.conf" &
@@ -83,4 +89,3 @@ function kill_telegraf {
         ssh ${h} killall -9 telegraf > /dev/null 2>&1
     done
 }
-
