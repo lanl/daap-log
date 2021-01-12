@@ -153,6 +153,8 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     init_data.agg_val = agg_val;
     init_data.transport_type = transport_type;
 
+    /* If the local env runs an RM other than SLURM, logic can be
+       added below to accomodate that */
     if( getenv("SLURMD_NODENAME") != NULL  ) {
         init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
     }
@@ -204,7 +206,12 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
 
     /* Send job start message to message broker/syslog if DAAP_DECOUPLE env var
        not set or set to 0 and the mpi rank is 0 */
-    if ( getenv("OMPI_COMM_WORLD_RANK") != NULL ) {
+    if ( getenv("SLURM_PROCID") != NULL ) {
+        if (!(strcmp(getenv("SLURM_PROCID"), "0")) ) {
+            daapRank_zero = true;
+        }
+    }
+    else if ( getenv("OMPI_COMM_WORLD_RANK") != NULL ) {
         if (!(strcmp(getenv("OMPI_COMM_WORLD_RANK"), "0")) ) {
             daapRank_zero = true;
         }
@@ -214,8 +221,12 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
             daapRank_zero = true;
         }
     }
-    // add other env variable cases in here for other flavors of MPI
-    //
+    else if ( getenv("PMI_RANK") != NULL ) {
+        if (!(strcmp(getenv("PMI_RANK"), "0")) ) {
+            daapRank_zero = true;
+        }
+    }
+    /* add other env variable cases in here for other flavors of MPI */
     /* if we don't have any way to determine rank, but the user is expecting
      * daapInit to handle the job start message, assume we are running serially,
      * but warn with a debug message */
