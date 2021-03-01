@@ -9,7 +9,8 @@ function launch_telegraf {
     BASE="/users/hng"
     TELEGRAF_BASE="$BASE/telegraf"
     date=`date +%s`
-    TELEGRAF_TMP="$BASE/telegraf-$date"
+    rand_num=$((1 + RANDOM % 100))
+    TELEGRAF_TMP="$BASE/telegraf-$date-$rand_num"
     mkdir "$TELEGRAF_TMP"
     TELEGRAF_EXEC="$TELEGRAF_BASE/telegraf"
     SLURM_HOSTS=`/usr/bin/scontrol show hostname "$SLURM_JOB_NODELIST" | tr '\n' "," | sed -e 's/,$//'`
