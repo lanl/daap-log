@@ -52,7 +52,7 @@ module Fluent
             
             name = child['name']
             if not ['infiniband','cpu', 'mem', 
-                    'temp', 'daap'].include?(name)
+                    'temp', 'daap', 'snap_pavilion_parser'].include?(name)
               next
             end
 
@@ -73,6 +73,13 @@ module Fluent
             if fields.has_key?('message') and fields['message'] == "__daap_jobend"
               new_rec['metric'] = 'job_state'
               new_rec['state'] = 'end'
+            end
+            if fields.has_key?('message') and fields['message'].include?  "__daap_jobduration:"
+              new_rec['metric'] = 'job_duration'
+              if match = fields['message'].match(/__daap_jobduration: ([^ ]+)/)
+                duration = match.captures
+                new_rec['duration'] = duration
+              end
             end
             #Add common fields
             new_rec['host'] = clean_host(child['tags']['host'])
@@ -135,7 +142,7 @@ module Fluent
                "usage_softirq", "usage_steal", 
                "usage_system", "usage_user"].each do |item|
                 dup_rec = new_rec.clone
-                dup_rec['type'] = item
+                dup_rec['type'] = item.gsub(/usage_/, '')
                 dup_rec['val'] = fields[item]
                 metrics.push(dup_rec)
               end
@@ -158,11 +165,12 @@ module Fluent
             if name == 'temp'
               new_rec['metric'] = 'temp'
               new_rec['val'] = fields['temp']
+              new_rec['sensor'] = child['tags']['sensor']
             end
-            if new_rec['job_name'] == 'snap_pavilion_parser'
-              new_rec['metric'] = 'snap_pavilion_run'
+            if name == 'snap_pavilion_parser' and fields['message'] == "daap_pavilion_parser"
+              new_rec['metric'] = 'snap_pavilion_parser'
               ["job_result", 
-               "job_started", "job_ended"].each do |item|
+               "job_started", "job_ended", "test_node_list"].each do |item|
                 new_rec[item] = child['tags'][item]
               end
               ["execution_time", "grind_time", 
@@ -173,7 +181,12 @@ module Fluent
                "allocated_words", "job_cpu_total"].each do |item|
                 new_rec[item] = child['tags'][item].to_i
               end
+
+              new_rec['jobid'] = child['tags']['job_id']
+            elsif name == 'snap_pavilion_parser'
+              next 
             end
+
             #Add to queue
             metrics.push(new_rec)
           end
@@ -185,7 +198,7 @@ module Fluent
         #Send records
         metrics.each do |m|
           ts = m["timestamp"]
-          if m.has_key?("metric") and m["metric"].include? "job_state"
+          if m.has_key?("metric") and (m["metric"].include? "job_state" or m["metric"].include? "job_duration")
             m["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
           end
           es_out.add(ts, m)
