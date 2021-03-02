@@ -20,6 +20,7 @@
 #include <syslog.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <time.h>
 
 /* BEGIN_C_DECLS is used to prevent C++ compilers from mangling names. */
 #undef BEGIN_C_DECLS
@@ -87,6 +88,7 @@ typedef struct {
     int agg_val;
     int alloc_size;
     transport transport_type;
+    unsigned long start_time;
 } daap_init_t;
 
 
@@ -150,8 +152,20 @@ void daaplogheartbeat_(void);
 /* Function to log a job start from an application process */
 int daapLogJobStart(void);
 
+/* Fortran version of daapLogJobStart */
+void daaplogjobstart_(void);
+
+/* Function to log the job duration from an application process */
+int daapLogJobDuration(void);
+
+/* Fortran version of daapLogJobDuration */
+void daaplogjobduration_(void);
+
 /* Function to log a job end from an application process */
 int daapLogJobEnd(void);
+
+/* Fortran version of daapLogJobEnd */
+void daaplogjobend_(void);
 
 /* Function to write a log entry from a json string.
  * This entry will be transported off-cluster to the data
