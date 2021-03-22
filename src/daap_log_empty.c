@@ -14,3 +14,15 @@ int daapLogWrite(const char *message, ...) {
 
     return 0;
 }
+
+int daapLogHeartbeat(void) {
+    return 0;
+}
+
+int daapLogJobStart(void) {
+    return 0;
+}
+
+int daapLogJobEnd(void) {
+    return 0;
+}

@@ -50,6 +50,7 @@
  */
 
 #include <string.h>
+#include <time.h>
 
 #include "daap_log_internal.h"
 #include "daap_log.h"
@@ -96,11 +97,17 @@ int daapLogWrite(const char *message, ...) {
 
     /* don't have easy way of determining length of full message
      * apart from this hack. */
+    clock_t t;
+    t = clock();
     va_start(args, message);
     null_device = fopen(NULL_DEVICE, "w");
     msg_len = vfprintf(null_device, message, args);
     fclose(null_device);
+//    msg_len = 1 + snprintf(full_message, 1, message, args);
     va_end(args);
+    t = clock() - t;
+    //long double elapsed_time = ((long double)t)/CLOCKS_PER_SEC;
+    printf("Elapsed Time: %d\n", t);
 
     if (msg_len > DAAP_MAX_MSG_LEN) {
         ERROR_OUTPUT(("Message is longer than DAAP_MAX_MSG_LEN: %d; truncating.", DAAP_MAX_MSG_LEN));
