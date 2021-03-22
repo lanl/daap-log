@@ -152,7 +152,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     strcpy(init_data.appname, app_name);
     init_data.agg_val = agg_val;
     init_data.transport_type = transport_type;
-
+    init_data.start_time = (unsigned long) time(NULL);
     if( getenv("SLURMD_NODENAME") != NULL  ) {
         init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
     }

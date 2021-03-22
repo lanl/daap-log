@@ -29,10 +29,12 @@
  *****************
  * daapLogHeartbeat()
  * daapLogJobStart()
+ * daapLogJobDuration()
  * daapLogJobEnd()
  *
  * Each of these calls sends a special message indicating an active job heartbeat, the start
- * of a job, and the end of a job, respectively. daapLogJobStart() and daapLogJobEnd()
+ * of a job, the duration of a job, and the end of a job, respectively. 
+ * daapLogJobStart() and daapLogJobEnd()
  * should only be called by rank 0.
  *
  *
@@ -91,7 +93,7 @@ int daapLogWrite(const char *message, ...) {
 
     if (!daapInit_called) {
         errno = EPERM;
-        perror("Initialize with daapInit() before calling daapLogWrite()");
+	//        perror("Initialize with daapInit() before calling daapLogWrite()");
         return DAAP_ERROR;
     }
 
@@ -188,8 +190,22 @@ void daaplogjobstart_(void) {
     daapLogJobStart();
 }
 
+/* Sends a message with the job's duration */
+int daapLogJobDuration(void) {
+    //Send the job duration time
+
+    unsigned long cur_time = (unsigned long) time(NULL);
+    return daapLogWrite("__daap_jobduration: %d", cur_time - init_data.start_time);
+}
+
+/* Fortran interface for daapLogJobDuration */
+void daaplogjobduration_(void) {
+    daapLogJobDuration();
+}
+
 /* Sends a message to mark the point of a job's end */
 int daapLogJobEnd(void) {
+    //Send the job end message
     return daapLogWrite("__daap_jobend");
 }
 
