@@ -49,36 +49,56 @@ module Fluent
             if not child.has_key?('name')
               next
             end
-            
             name = child['name']
             if not ['infiniband','cpu', 'mem', 
-                    'temp', 'daap', 'snap_pavilion_parser'].include?(name)
+                    'temp', 'daap', 'snap_pavilion_parser', 
+                    'pre_team_pavilion_parser', 'pre_team_pavilion_hpl_parser'].include?(name)
               next
             end
 
             new_rec = {}
             fields = child['fields']
+            prefix = ''
+            if child['tags']['jobinfo'].include? "flag_perf_tests_"
+              prefix = "flag_daap_"
+            end
             #Infiniband errors
             #Heartbeat
             if fields.has_key?('message') and fields['message'] == "__daap_heartbeat"
-              new_rec['metric'] = 'heartbeat'
+              new_rec['metric'] = prefix + 'heartbeat'
               new_rec['type'] = 'heartbeat'
               new_rec['val'] = 1
             end
             #Start
             if fields.has_key?('message') and fields['message'] == "__daap_jobstart"
-              new_rec['metric'] = 'job_state'
+              new_rec['metric'] = prefix + 'job_state'
               new_rec['state'] = 'start'
             end
             if fields.has_key?('message') and fields['message'] == "__daap_jobend"
-              new_rec['metric'] = 'job_state'
+              new_rec['metric'] = prefix + 'job_state'
               new_rec['state'] = 'end'
             end
             if fields.has_key?('message') and fields['message'].include?  "__daap_jobduration:"
-              new_rec['metric'] = 'job_duration'
+              new_rec['metric'] = prefix + 'job_duration'
               if match = fields['message'].match(/__daap_jobduration: ([^ ]+)/)
                 duration = match.captures
                 new_rec['duration'] = duration
+              end
+            end
+            if fields.has_key?('message') and fields['message'].include? "mesh" and prefix == "flag_daap_"
+              new_rec['metric'] = prefix + 'mesh_info'
+              if match = fields['message'].match(/([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)[ ]+([^ ]+)/)
+                name, handle, geom, numpe, points, edges, faces, sides, zones, bandwidth = match.captures
+                new_rec['name'] = name
+                new_rec['handle'] = handle
+                new_rec['geom'] = geom
+                new_rec['numpe'] = numpe
+                new_rec['points'] = points
+                new_rec['edges'] = edges
+                new_rec['faces'] = faces
+                new_rec['sides'] = sides
+                new_rec['zones'] = zones
+                new_rec['bandwidth'] = bandwidth 
               end
             end
             #Add common fields
@@ -105,9 +125,30 @@ module Fluent
                 end
               end            
             end
-            
+
+            #Get Rank            
+            if child['tags'].has_key?('mpirank')
+                  new_rec['mpirank'] = child['tags']['mpirank']
+            end
+
+            if name == 'pre_team_pavilion_parser'
+              new_rec['metric'] = 'pre_team'
+              ["job_cpu_total", "job_duration", "job_ended", "job_id", "job_max_mem", 
+               "job_name", "job_nodes", "job_result", "job_started", "job_user", "sys_name"].each do |item|
+                new_rec[item] = child['tags'][item]
+              end
+            end
+            if name == 'pre_team_pavilion_hpl_parser'
+              new_rec['metric'] = 'pre_team_hpl'
+              ["cpumode","cpuspeed","gflops","job_id","sys_name","valalign",
+               "valbcast","valdepth","valequil","vall1","valn","valnb","valnbmin",
+               "valndiv","valp","valpfact","valpmap","valq","valrfact","valswap",
+		"valu", "node"].each do |item|
+                new_rec[item] = child['tags'][item]
+              end
+            end
             if name == 'infiniband'
-              new_rec['metric'] = 'infiniband_errors'
+              new_rec['metric'] = prefix + 'infiniband_errors'
               ["link_downed", "link_error_recovery", 
                "local_link_integrity_errors", "port_rcv_constraint_errors", 
                "port_rcv_errors", "port_xmit_discards", 
@@ -119,7 +160,7 @@ module Fluent
                 dup_rec['device'] = child['tags']['device']
                 metrics.push(dup_rec)
               end
-              new_rec['metric'] = 'infiniband_metrics'
+              new_rec['metric'] = prefix + 'infiniband_metrics'
               ["multicast_rcv_packets", "multicast_xmit_packets", 
                "port_rcv_data", "port_rcv_packets", 
                "port_xmit_data", "port_xmit_packets", 
@@ -135,7 +176,7 @@ module Fluent
             end
             #CPU Usage
             if name == 'cpu'
-              new_rec['metric'] = 'cpu_usage'
+              new_rec['metric'] = prefix + 'cpu_usage'
               ["usage_guest", "usage_guest_nice", 
                "usage_idle", "usage_iowait", 
                "usage_irq", "usage_nice", 
@@ -150,7 +191,7 @@ module Fluent
             end
             #MEM usage
             if name == 'mem'
-              new_rec['metric'] = 'mem_usage'
+              new_rec['metric'] = prefix + 'mem_usage'
               ["active", "inactive", 
                "vmalloc_total", "vmalloc_used", 
                "used_percent"].each do |item|
@@ -163,7 +204,7 @@ module Fluent
             end
             #MEM usage
             if name == 'temp'
-              new_rec['metric'] = 'temp'
+              new_rec['metric'] = prefix + 'temp'
               new_rec['val'] = fields['temp']
               new_rec['sensor'] = child['tags']['sensor']
             end
