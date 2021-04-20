@@ -83,7 +83,7 @@ typedef struct {
     char *appname;
     char *hostname;
     char *cluster_name;
-    int mpi_rank;
+    long int mpi_rank;
     int level;
     int agg_val;
     int alloc_size;
@@ -126,6 +126,12 @@ int daapInit(const char *app_name, int msg_level, int agg_type, transport transp
 
 /* Fortran version of daapInit */
 void daapinit_(char *app_name, int len);
+
+/* Set the proc's rank */
+void daapSetRank(int rank);
+
+/* Fortran version of daapSetRank */
+void daapsetrank_(int *rank);
 
 /*   Cleans up / depopulates / dallocates (as required) structure vars
  *   populated by daapInit. */
@@ -197,6 +203,7 @@ char *daapBuildRawInflux(char *message);
 int daapTCPConnect(void);
 int daapTCPClose();
 int daapTCPLogWrite(char *buf, int buf_size);
+
 END_C_DECLS
 
 #endif /* DAAP_LOG_H */

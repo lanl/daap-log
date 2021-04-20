@@ -13,3 +13,5 @@ void daaplogjobstart_(void);
 void daaplogjobduration_(void);
 
 void daaplogjobend_(void);
+
+void daapsetrank_(int *);
