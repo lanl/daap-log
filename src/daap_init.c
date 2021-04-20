@@ -209,12 +209,24 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         if (!(strcmp(getenv("OMPI_COMM_WORLD_RANK"), "0")) ) {
             daapRank_zero = true;
         }
+
+        init_data.mpi_rank = atoi(getenv("OMPI_COMM_WORLD_RANK"));
     }
     else if ( getenv("PMI_RANK") != NULL ) {
         if (!(strcmp(getenv("PMI_RANK"), "0")) ) {
             daapRank_zero = true;
         }
+
+        init_data.mpi_rank = atoi(getenv("PMI_RANK"));
     }
+    else if ( getenv("PMIX_RANK") != NULL ) {
+        if (!(strcmp(getenv("PMIX_RANK"), "0")) ) {
+            daapRank_zero = true;
+        }
+
+        init_data.mpi_rank = atoi(getenv("PMIX_RANK"));
+    }
+
 
 
     // add other env variable cases in here for other flavors of MPI
