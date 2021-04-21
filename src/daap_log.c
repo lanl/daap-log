@@ -295,7 +295,7 @@ char *daapBuildInflux(long timestamp, char *message) {
     long long tstamp = timestamp * 1000000;
 
     snprintf(influx_msg, max_size,
-	    "daap,%s=%s,%s=%s,%s=%s,%s=%d %s=\"%s\" %lld",
+	    "daap,%s=%s,%s=%s,%s=%s,%s=%ld %s=\"%s\" %lld",
 	    APP_KEY, init_data.appname,
 	    HOST_KEY, init_data.hostname,
 	    CLUSTER_NAME_KEY, init_data.cluster_name,

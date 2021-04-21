@@ -153,6 +153,7 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
     init_data.agg_val = agg_val;
     init_data.transport_type = transport_type;
     init_data.start_time = (unsigned long) time(NULL);
+    init_data.mpi_rank = 0;
     if( getenv("SLURMD_NODENAME") != NULL  ) {
         init_data.hostname = strdup(getenv("SLURMD_NODENAME"));
     }
@@ -208,12 +209,26 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
         if (!(strcmp(getenv("OMPI_COMM_WORLD_RANK"), "0")) ) {
             daapRank_zero = true;
         }
+
+        init_data.mpi_rank = atoi(getenv("OMPI_COMM_WORLD_RANK"));
+    }
+    else if ( getenv("PMI_RANK") != NULL ) {
+        if (!(strcmp(getenv("PMI_RANK"), "0")) ) {
+            daapRank_zero = true;
+        }
+
+        init_data.mpi_rank = atoi(getenv("PMI_RANK"));
     }
     else if ( getenv("PMIX_RANK") != NULL ) {
         if (!(strcmp(getenv("PMIX_RANK"), "0")) ) {
             daapRank_zero = true;
         }
+
+        init_data.mpi_rank = atoi(getenv("PMIX_RANK"));
     }
+
+
+
     // add other env variable cases in here for other flavors of MPI
     //
     /* if we don't have any way to determine rank, but the user is expecting
@@ -263,6 +278,14 @@ int daapFinalize(void) {
 
     pthread_mutex_unlock(&finalize_mutex);
     return ret_val;
+}
+
+void daapSetRank(int rank) {
+    init_data.mpi_rank = rank;
+}
+
+void daapsetrank_(int *rank) {
+    daapSetRank(*rank);
 }
 
 void daapfinalize_(void) {
