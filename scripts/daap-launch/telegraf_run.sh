@@ -13,7 +13,7 @@ function launch_telegraf {
     else
       BASE=$HOME
     fi
-    TELEGRAF_BASE="$BASE/telegraf"
+    TELEGRAF_BASE="$BASE"
     date=`date +%s`
     rand_num=$((1 + RANDOM % 100))
     TELEGRAF_TMP="$BASE/telegraf-$date-$rand_num"
