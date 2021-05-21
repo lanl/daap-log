@@ -1,4 +1,5 @@
 #!/bin/bash
+start_dir=$PWD
 mkdir ~/daap_certs
 cd ~/daap_certs
 echo 01 > ./serial &&
@@ -75,7 +76,7 @@ openssl genrsa -out ./client_key.pem 1024 &&
 openssl req -new -key ./client_key.pem -out ./clientcsr.pem -outform PEM -subj "/CN=client.localdomain/O=client/" &&
 openssl ca -config ./openssl.conf -in ./clientcsr.pem -out ./client_cert.pem -notext -batch -extensions client_ca_extensions
 
-cd ~/telegraf
+cd $start_dir #~/telegraf
 sed -i.bkup -e "s/\/hng\//\/${USER}\//" telegraf-agg.conf
 sed -i.bkup -e "s/\/hng\//\/${USER}\//" telegraf-client.conf
 rm -f telegraf-agg.conf.bkup
