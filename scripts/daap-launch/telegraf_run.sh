@@ -6,14 +6,15 @@ function modify_config {
 }
 
 function launch_telegraf {
-    # NOTE: If we can gaurantee that telegraf base will be in home this can be simplified
-    #       Else, pass telegraf's parent directory as argument 1
+    # NOTE: If we can gaurantee that telegraf base will be in $HOME/telegraf this can be simplified
+    #       Else, pass telegraf's root directory as argument 1
     if [ $# -ne 0 ]; then
       BASE=$1
+      TELEGRAF_BASE="$BASE"
     else
       BASE=$HOME
+      TELEGRAF_BASE="$BASE/telegraf"
     fi
-    TELEGRAF_BASE="$BASE"
     date=`date +%s`
     rand_num=$((1 + RANDOM % 100))
     TELEGRAF_TMP="$BASE/telegraf-$date-$rand_num"
