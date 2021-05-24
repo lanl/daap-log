@@ -1,5 +1,10 @@
 #!/bin/bash
-start_dir=$PWD
+# NOTE: If we can gaurantee that telegraf base will be in $HOME/telegraf this can be simplified
+#       Else, pass telegraf's root directory as argument 1
+if [ $# -ne 0 ]; then
+    telegraf_dir=$1
+else
+    telegraf_dir=$HOME/telegraf
 mkdir ~/daap_certs
 cd ~/daap_certs
 echo 01 > ./serial &&
@@ -76,7 +81,7 @@ openssl genrsa -out ./client_key.pem 1024 &&
 openssl req -new -key ./client_key.pem -out ./clientcsr.pem -outform PEM -subj "/CN=client.localdomain/O=client/" &&
 openssl ca -config ./openssl.conf -in ./clientcsr.pem -out ./client_cert.pem -notext -batch -extensions client_ca_extensions
 
-cd $start_dir #~/telegraf
+cd $telegraf_dir
 sed -i.bkup -e "s/\/hng\//\/${USER}\//" telegraf-agg.conf
 sed -i.bkup -e "s/\/hng\//\/${USER}\//" telegraf-client.conf
 rm -f telegraf-agg.conf.bkup
