@@ -5,6 +5,7 @@ if [ $# -ne 0 ]; then
     telegraf_dir=$1
 else
     telegraf_dir=$HOME/telegraf
+fi
 mkdir ~/daap_certs
 cd ~/daap_certs
 echo 01 > ./serial &&
