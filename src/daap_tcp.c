@@ -58,10 +58,8 @@ int daapInitializeSSL() {
   ssl_client_cert_len = strlen(SSL_CLIENT_CERT);
   ssl_client_key_len = strlen(SSL_CLIENT_KEY);
 
-  if (
-       (strlen(cert_dir) + ssl_client_key_len < PATH_MAX) && 
-       (strlen(cert_dir) + ssl_client_cert_len < PATH_MAX)
-     ) 
+  if ((strlen(cert_dir) + ssl_client_key_len < PATH_MAX) && 
+       (strlen(cert_dir) + ssl_client_cert_len < PATH_MAX)) 
   {
     snprintf(ssl_client_cert, cert_dir_len+ssl_client_cert_len+2,"%s%s", cert_dir, SSL_CLIENT_CERT);
     snprintf(ssl_client_key, cert_dir_len+ssl_client_key_len+2,"%s%s", cert_dir, SSL_CLIENT_KEY);
