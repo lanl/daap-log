@@ -28,6 +28,7 @@
 
 #define SSL_CLIENT_CERT "/daap_certs/client_cert.pem"
 #define SSL_CLIENT_KEY "/daap_certs/client_key.pem"
+#define DAAP_CERTS_ENVVAR "DAAP_CERTS"
 static pthread_mutex_t write_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 SSL *cSSL = NULL;
@@ -47,7 +48,7 @@ int daapInitializeSSL() {
   SSL_library_init();
   OpenSSL_add_all_algorithms();
 
-  home = getenv("HOME");
+  home = getenv(DAAP_CERTS_ENVVAR);
   ssl_client_cert_len = strlen(SSL_CLIENT_CERT);
   ssl_client_key_len = strlen(SSL_CLIENT_KEY);
   if (home != NULL && (strlen(home) + ssl_client_key_len < PATH_MAX) && 
