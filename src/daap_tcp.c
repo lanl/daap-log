@@ -26,8 +26,8 @@
 //#define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(1); }
 #define CHK_SSL(err) if ((err)==-1) { ERR_print_errors_fp(stderr); exit(2); }
 
-#define SSL_CLIENT_CERT "/daap_certs/client_cert.pem"
-#define SSL_CLIENT_KEY "/daap_certs/client_key.pem"
+#define SSL_CLIENT_CERT "client_cert.pem"
+#define SSL_CLIENT_KEY "client_key.pem"
 #define DAAP_CERTS_ENVVAR "DAAP_CERTS"
 static pthread_mutex_t write_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -38,24 +38,33 @@ static SSL_CTX *sslctx;
 int daapInitializeSSL() {
   char ssl_client_cert[PATH_MAX];
   char ssl_client_key[PATH_MAX];
-  int home_len;
+  int cert_dir_len;
   int ssl_client_key_len;
   int ssl_client_cert_len;
-  char *home;
+  char *cert_dir;
   long options;
 
   SSL_load_error_strings();
   SSL_library_init();
   OpenSSL_add_all_algorithms();
 
-  home = getenv(DAAP_CERTS_ENVVAR);
+  cert_dir = getenv(DAAP_CERTS_ENVVAR);
+  if (cert_dir == NULL) {
+    fprintf(stderr, "Environment Variable %s returned NULL\n", DAAP_CERTS_ENVVAR);
+    return -1;
+  }
+
+  cert_dir_len = strlen(cert_dir);
   ssl_client_cert_len = strlen(SSL_CLIENT_CERT);
   ssl_client_key_len = strlen(SSL_CLIENT_KEY);
-  if (home != NULL && (strlen(home) + ssl_client_key_len < PATH_MAX) && 
-      (strlen(home) + ssl_client_cert_len < PATH_MAX)) {
-    home_len = strlen(home);
-    snprintf(ssl_client_cert, home_len+ssl_client_cert_len+2,"%s%s", home, SSL_CLIENT_CERT);
-    snprintf(ssl_client_key, home_len+ssl_client_key_len+2,"%s%s", home, SSL_CLIENT_KEY);
+
+  if (
+       (strlen(cert_dir) + ssl_client_key_len < PATH_MAX) && 
+       (strlen(cert_dir) + ssl_client_cert_len < PATH_MAX)
+     ) 
+  {
+    snprintf(ssl_client_cert, cert_dir_len+ssl_client_cert_len+2,"%s%s", cert_dir, SSL_CLIENT_CERT);
+    snprintf(ssl_client_key, cert_dir_len+ssl_client_key_len+2,"%s%s", cert_dir, SSL_CLIENT_KEY);
     if (access(ssl_client_cert, R_OK) == -1 || access(ssl_client_key, R_OK) == -1) {
       fprintf(stderr, "Cannot find or access DAAP ssl cert: %s or key: %s\n", 
 	      ssl_client_cert, ssl_client_key);
