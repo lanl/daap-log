@@ -101,12 +101,20 @@ module Fluent
                 new_rec['bandwidth'] = bandwidth 
               end
             end
+            if fields.has_key?('message') and fields['message'].include? "zones:" and prefix == "flag_daap_"
+              new_rec['metric'] = prefix + 'zones'
+              if match = fields['message'].match(/[ ]+zones:[ ]+([^ ]+)[ ]+numpes:[ ]+([^ ]+)[ ]+/)
+                zones, numpes = match.captures
+                new_rec['zones'] = zones
+                new_rec['numpes'] = numpes
+              end
+            end
             #Add common fields
             new_rec['host'] = clean_host(child['tags']['host'])
             new_rec['timestamp'] = child['timestamp']
             #Get jobinfo
             if child['tags'].has_key?('jobinfo')
-              if match = child['tags']['jobinfo'].match(/jobid=([^ ]+).*name=([^ ]+).*user=([^ ]+)/i)
+              if match = child['tags']['jobinfo'].match(/jobid=([^ ]+).*name=([^ ]+).*user=([^ ]+).*/i)
                 jobid, job_name, user = match.captures
                 if jobid
                   new_rec['jobid'] = jobid
@@ -122,6 +130,29 @@ module Fluent
                   new_rec['user'] = user
                 else
                   new_rec['user'] = ""
+                end
+              end            
+              if match = child['tags']['jobinfo'].match(/jobid=([^ ]+).*name=([^ ]+).*user=([^ ]+).*ranks=([^ ]+)/i)
+                jobid, job_name, user, ranks = match.captures
+                if jobid
+                  new_rec['jobid'] = jobid
+                else
+                  new_rec['jobid'] = "0"
+                end
+                if job_name
+                  new_rec['job_name'] = job_name
+                else
+                  new_rec['job_name'] = ""
+                end
+                if user
+                  new_rec['user'] = user
+                else
+                  new_rec['user'] = ""
+                end
+                if ranks
+                  new_rec['ranks'] = ranks
+                else
+                  new_rec['ranks'] = "0"
                 end
               end            
             end
