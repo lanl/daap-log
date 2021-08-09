@@ -6,7 +6,7 @@ function modify_config {
 }
 
 function launch_telegraf {
-    # NOTE: If we can gaurantee that telegraf base will be in $HOME/telegraf this can be simplified
+    # NOTE: If we can guarantee that telegraf base will be in $HOME/telegraf this can be simplified
     #       Else, pass telegraf's root directory as argument 1
     if [ $# -ne 0 ]; then
       BASE=$1
@@ -17,8 +17,12 @@ function launch_telegraf {
     fi
     date=`date +%s`
     rand_num=$((1 + RANDOM % 100))
-    TELEGRAF_TMP="$BASE/telegraf-$date-$rand_num"
-    mkdir "$TELEGRAF_TMP"
+    # Allow for TELEBRAF_WORKING_DIR to be an env var
+    if [[ -z "${TELEGRAF_WORKING_DIR}" ]]; then
+        TELEGRAF_WORKING_DIR="$HOME/telegraf_tmp"
+    fi
+    TELEGRAF_TMP="$TELEGRAF_WORKING_DIR/telegraf-$date-$rand_num"
+    mkdir -p "$TELEGRAF_TMP"
     TELEGRAF_EXEC="$TELEGRAF_BASE/telegraf"
     SLURM_HOSTS=`/usr/bin/scontrol show hostname "$SLURM_JOB_NODELIST" | tr '\n' "," | sed -e 's/,$//'`
     rm -f ${TELEGRAF_BASE}/telegraf-agg-*.conf
@@ -90,4 +94,10 @@ function kill_telegraf {
 	servers_array_len=${#servers[@]}
         ssh ${h} killall -9 telegraf > /dev/null 2>&1
     done
+
+    rm -rf ${TELEGRAF_TMP}
+    if [ -d ${TELEGRAF_WORKING_DIR} ] && [ -nz $(ls -A ${TELEGRAF_WORKING_DIR}) ]
+    then
+        rmdir ${TELEGRAF_WORKING_DIR}
+    fi 
 }
