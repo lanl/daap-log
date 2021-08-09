@@ -61,8 +61,8 @@ int daapInitializeSSL() {
   if ((strlen(cert_dir) + ssl_client_key_len < PATH_MAX) && 
        (strlen(cert_dir) + ssl_client_cert_len < PATH_MAX)) 
   {
-    snprintf(ssl_client_cert, cert_dir_len+ssl_client_cert_len+2,"%s%s", cert_dir, SSL_CLIENT_CERT);
-    snprintf(ssl_client_key, cert_dir_len+ssl_client_key_len+2,"%s%s", cert_dir, SSL_CLIENT_KEY);
+    snprintf(ssl_client_cert, cert_dir_len+ssl_client_cert_len+2,"%s/%s", cert_dir, SSL_CLIENT_CERT);
+    snprintf(ssl_client_key, cert_dir_len+ssl_client_key_len+2,"%s/%s", cert_dir, SSL_CLIENT_KEY);
     if (access(ssl_client_cert, R_OK) == -1 || access(ssl_client_key, R_OK) == -1) {
       fprintf(stderr, "Cannot find or access DAAP ssl cert: %s or key: %s\n", 
 	      ssl_client_cert, ssl_client_key);
