@@ -17,6 +17,7 @@ function launch_telegraf {
     fi
     date=`date +%s`
     rand_num=$((1 + RANDOM % 100))
+    # Allow for TELEBRAF_WORKING_DIR to be an env var
     if [[ -z "${TELEGRAF_WORKING_DIR}" ]]; then
         TELEGRAF_WORKING_DIR="$HOME/telegraf_tmp"
     fi
