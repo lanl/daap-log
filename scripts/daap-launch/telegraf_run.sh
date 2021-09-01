@@ -6,7 +6,7 @@ function modify_config {
 }
 
 function launch_telegraf {
-    # NOTE: If we can guarantee that telegraf base will be in $HOME/telegraf this can be simplified
+    # NOTE: If we can gaurantee that telegraf base will be in $HOME/telegraf this can be simplified
     #       Else, pass telegraf's root directory as argument 1
     if [ $# -ne 0 ]; then
       BASE=$1
@@ -17,6 +17,7 @@ function launch_telegraf {
     fi
     date=`date +%s`
     rand_num=$((1 + RANDOM % 100))
+
     # Allow for TELEBRAF_WORKING_DIR to be an env var
     if [[ -z "${TELEGRAF_WORKING_DIR}" ]]; then
         TELEGRAF_WORKING_DIR="$HOME/telegraf_tmp"
@@ -96,7 +97,7 @@ function kill_telegraf {
     done
 
     rm -rf ${TELEGRAF_TMP}
-    if [ -d ${TELEGRAF_WORKING_DIR} ] && [ -nz $(ls -A ${TELEGRAF_WORKING_DIR}) ]
+    if [ -d ${TELEGRAF_WORKING_DIR} ] && [ -z "$(ls -A ${TELEGRAF_WORKING_DIR})" ]
     then
         rmdir ${TELEGRAF_WORKING_DIR}
     fi 
