@@ -24,6 +24,7 @@ module Fluent
 
       def configure(conf)
         super
+	@jobs = {}
       end
 
       def deep_copy(o)
@@ -40,7 +41,58 @@ module Fluent
         es_out = MultiEventStream.new
         metrics = Array.new
         es.each do |time, record|
-          next unless record.key?("metrics")
+          next unless record.key?("metrics") or record.key?("message")
+	  if !record.has_key?('metrics') and record.has_key?('message')
+            if !record['message'].include?('xrage') and !record['message'].include?('caliper')
+              next
+            end
+
+            record['message'].gsub!(/^.*host=[^ ]+ /, '')
+            record['message'].gsub!(/^(.*) (\d+).*/, '\1,timestamp=\2')
+            #          puts record
+            #Split into key/value pairs
+            kv_pairs = msg.split(',')
+            new_rec = {}
+            kv_pairs.each do | item |
+              k, v = item.split('=')
+              v.gsub!(/\\\\/, '')
+              v.gsub!(/\"/, '')
+              v.strip!()
+              new_rec[k] = v
+            end
+            #We have bad data if kv_pairs.length is < 1
+            if kv_pairs.length < 1
+              next
+            end
+            if record['message'].include?('xrage')
+              new_rec['metric'] = 'xrage_metrics'
+              ["numpe", "nodes",
+               "ppn_min", "ppn_max", 
+               "dims", "cells_min", "cells_avg",
+               "cells_max", "cyc_cc_min", "cyc_cc_avg",
+               "cyc_cc_max", "cyc_sec_min", "cyc_sec_avg",
+               "cyc_sec_max", "elapsed_s"].each do |item|
+                new_rec[item] = new_rec[item].to_i
+              end
+              ["scale", "rss_min",
+               "rss_avg", "rss_max",
+               "rss_max_min", "rss_max_avg", "rss_max_max"].each do |item|
+                new_rec[item] = new_rec[item].to_f
+              end
+            else
+              new_rec['metric'] = 'xrage_caliper'
+              ["driver_after_cyclemin", "driver_after_cyclemax",
+               "driver_after_cycleavg"].each do |item|
+                new_rec[item] = new_rec[item].to_f
+              end
+            end
+              
+            ts = new_rec["timestamp"].to_i/1000000
+            new_rec["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
+            metrics.push(new_rec)
+            puts new_rec
+          end
+
           #Go through the json and pick out what we want
           record["metrics"].each do |child|
             if not child.has_key?('fields')
@@ -82,7 +134,7 @@ module Fluent
               new_rec['metric'] = prefix + 'job_duration'
               if match = fields['message'].match(/__daap_jobduration: ([^ ]+)/)
                 duration = match.captures
-                new_rec['duration'] = duration
+                new_rec['duration'] = duration[0].to_i
               end
             end
             if fields.has_key?('message') and fields['message'].include? "mesh" and prefix == "flag_daap_"
@@ -124,11 +176,88 @@ module Fluent
                   new_rec['user'] = ""
                 end
               end            
+              if match = child['tags']['jobinfo'].match(/jobid=([^ ]+).*name=([^ ]+).*user=([^ ]+).*ranks=([^ ]+)/i)
+                jobid, job_name, user, ranks = match.captures
+                if jobid
+                  new_rec['jobid'] = jobid
+                else
+                  new_rec['jobid'] = "0"
+                end
+                if job_name
+                  new_rec['job_name'] = job_name
+                else
+                  new_rec['job_name'] = ""
+                end
+                if user
+                  new_rec['user'] = user
+                else
+                  new_rec['user'] = ""
+                end
+                if ranks
+                  new_rec['ranks'] = ranks
+                else
+                  new_rec['ranks'] = "0"
+                end
+              end            
+              if match = child['tags']['jobinfo'].match(/jobid=([^ ]+).*name=([^ ]+).*user=([^ ]+).*ranks=([^ ]+).*version=([^ ]+).*probsize=([^ ]+)/i)
+                jobid, job_name, user, ranks, version, probsize = match.captures
+                if jobid
+                  new_rec['jobid'] = jobid
+                else
+                  new_rec['jobid'] = "0"
+                end
+                if job_name
+                  new_rec['job_name'] = job_name
+                else
+                  new_rec['job_name'] = ""
+                end
+                if user
+                  new_rec['user'] = user
+                else
+                  new_rec['user'] = ""
+                end
+                if ranks
+                  new_rec['ranks'] = ranks
+                else
+                  new_rec['ranks'] = "0"
+                end
+                if version 
+                  new_rec['version'] = version
+                else
+                  new_rec['version'] = "0"
+                end
+                if probsize
+                  new_rec['probsize'] = probsize
+                else
+                  new_rec['probsize'] = "0"
+                end
+              end            
             end
 
+	    if !new_rec.has_key?('jobid') or !new_rec.has_key?('job_name')
+              #puts child
+              next
+            end
+            #Store job info
+            job_key = new_rec['jobid'] + "_" + new_rec['job_name']
+            
             #Get Rank            
-            if child['tags'].has_key?('mpi_rank')
-                  new_rec['mpi_rank'] = child['tags']['mpi_rank']
+            if child['tags'].has_key?('mpirank')
+                  new_rec['mpirank'] = child['tags']['mpirank']
+            end
+            if fields.has_key?('message') and fields['message'].include? "zones:" and prefix == "flag_daap_"
+              new_rec['metric'] = prefix + 'zones'
+              if match = fields['message'].match(/[ ]+zones:[ ]+([^ ]+)[ ]+numpes:[ ]+([^ ]+)[ ]+/)
+                zones, numpes = match.captures
+                new_rec['zones'] = zones
+                new_rec['numpes'] = numpes
+                jobid = new_rec['jobid']
+              end
+            end
+
+  	    if prefix == "flag_daap_" and new_rec.has_key?('mpirank') and new_rec['mpirank'] == "0" and new_rec.has_key?('duration')
+              jobid = new_rec['jobid']
+	      duration =  new_rec['duration'][0]
             end
 
             if name == 'pre_team_pavilion_parser'
@@ -191,18 +320,32 @@ module Fluent
             end
             #MEM usage
             if name == 'mem'
+#              puts "Got mem msg"
               new_rec['metric'] = prefix + 'mem_usage'
-              ["active", "inactive", 
-               "vmalloc_total", "vmalloc_used", 
-               "used_percent"].each do |item|
-                dup_rec = new_rec.clone
-                dup_rec['type'] = item
-                dup_rec['val'] = fields[item]
-                metrics.push(dup_rec)
+              ["used_percent"].each do |item|
+                if !@jobs.has_key?(job_key)
+                  @jobs[job_key] = {'timestamp' => time, 'max_mem' => 0, 'samples' => 0}
+                end
+                new_mem = fields[item]
+                max_mem = @jobs[job_key]['max_mem']
+                samples = @jobs[job_key]['samples']
+                samples = samples + 1
+                if new_mem > max_mem
+                  @jobs[job_key] = {'timestamp' => time, 'max_mem' => new_mem, 'samples' => samples}
+                else
+                  @jobs[job_key] = {'timestamp' => time, 'max_mem' => max_mem, 'samples' => samples}
+                end
+                if samples % 100 == 0
+                  dup_rec = new_rec.clone
+                  dup_rec['type'] = item + "_max"
+                  dup_rec['val'] = fields[item]
+                  #puts job_key, @jobs[job_key], samples
+                  metrics.push(dup_rec)
+                end
               end
               next
             end
-            #MEM usage
+            #Temps
             if name == 'temp'
               new_rec['metric'] = prefix + 'temp'
               new_rec['val'] = fields['temp']
@@ -246,6 +389,15 @@ module Fluent
         end
 
         router.emit_stream(emit_tag, es_out)
+        #clean Jobs Hash
+        cur_ts = Time.now.to_i
+        max_age = 30 * 60 
+	@jobs.each do |k,v|
+	  diff = cur_ts - v["timestamp"]
+	  if diff > max_age
+             @jobs.delete(k)
+          end
+        end
       end
     end
   end
