@@ -127,8 +127,8 @@ module Fluent
             end
 
             #Get Rank            
-            if child['tags'].has_key?('mpirank')
-                  new_rec['mpirank'] = child['tags']['mpirank']
+            if child['tags'].has_key?('mpi_rank')
+                  new_rec['mpi_rank'] = child['tags']['mpi_rank']
             end
 
             if name == 'pre_team_pavilion_parser'
