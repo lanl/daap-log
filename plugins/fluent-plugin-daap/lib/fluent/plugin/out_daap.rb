@@ -42,17 +42,25 @@ module Fluent
         metrics = Array.new
         es.each do |time, record|
           next unless record.key?("metrics") or record.key?("message")
+	  if record['message'].include?('fields')
+            record = JSON.parse(record['message'])
+          end 
 	  if !record.has_key?('metrics') and record.has_key?('message')
-            if !record['message'].include?('xrage') and !record['message'].include?('caliper')
+            if !record['message'].include?('xrage-metrics') and !record['message'].include?('caliper')
               next
+            end
+            new_rec = {}
+            if record['message'].include?('xrage-metrics')
+              new_rec['metric'] = 'xrage_metrics'
+            else
+              new_rec['metric'] = 'xrage_caliper'
             end
 
             record['message'].gsub!(/^.*host=[^ ]+ /, '')
             record['message'].gsub!(/^(.*) (\d+).*/, '\1,timestamp=\2')
             #          puts record
             #Split into key/value pairs
-            kv_pairs = msg.split(',')
-            new_rec = {}
+            kv_pairs = record['message'].split(',')
             kv_pairs.each do | item |
               k, v = item.split('=')
               v.gsub!(/\\\\/, '')
@@ -64,33 +72,34 @@ module Fluent
             if kv_pairs.length < 1
               next
             end
-            if record['message'].include?('xrage')
-              new_rec['metric'] = 'xrage_metrics'
+            if new_rec['metric'].include?('xrage_metrics')
               ["numpe", "nodes",
                "ppn_min", "ppn_max", 
-               "dims", "cells_min", "cells_avg",
-               "cells_max", "cyc_cc_min", "cyc_cc_avg",
+               "dims", 
+               "cyc_cc_min", "cyc_cc_avg",
                "cyc_cc_max", "cyc_sec_min", "cyc_sec_avg",
                "cyc_sec_max", "elapsed_s"].each do |item|
                 new_rec[item] = new_rec[item].to_i
               end
               ["scale", "rss_min",
                "rss_avg", "rss_max",
-               "rss_max_min", "rss_max_avg", "rss_max_max"].each do |item|
+               "rss_max_min", "rss_max_avg", "rss_max_max",
+               "avg_cells_min", "avg_cells_avg", "avg_cells_max"].each do |item|
                 new_rec[item] = new_rec[item].to_f
               end
             else
-              new_rec['metric'] = 'xrage_caliper'
               ["driver_after_cyclemin", "driver_after_cyclemax",
                "driver_after_cycleavg"].each do |item|
                 new_rec[item] = new_rec[item].to_f
               end
             end
-              
-            ts = new_rec["timestamp"].to_i/1000000
-            new_rec["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
+            
+            ts = new_rec["timestamp"].to_i/1000000000
+            #            new_rec["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
+            new_rec["timestamp"] = ts
             metrics.push(new_rec)
             puts new_rec
+            next
           end
 
           #Go through the json and pick out what we want
@@ -243,7 +252,7 @@ module Fluent
             
             #Get Rank            
             if child['tags'].has_key?('mpirank')
-                  new_rec['mpirank'] = child['tags']['mpirank']
+              new_rec['mpirank'] = child['tags']['mpirank']
             end
             if fields.has_key?('message') and fields['message'].include? "zones:" and prefix == "flag_daap_"
               new_rec['metric'] = prefix + 'zones'
@@ -272,7 +281,7 @@ module Fluent
               ["cpumode","cpuspeed","gflops","job_id","sys_name","valalign",
                "valbcast","valdepth","valequil","vall1","valn","valnb","valnbmin",
                "valndiv","valp","valpfact","valpmap","valq","valrfact","valswap",
-		"valu", "node"].each do |item|
+               "valu", "node"].each do |item|
                 new_rec[item] = child['tags'][item]
               end
             end
@@ -382,7 +391,7 @@ module Fluent
         #Send records
         metrics.each do |m|
           ts = m["timestamp"]
-          if m.has_key?("metric") and (m["metric"].include? "job_state" or m["metric"].include? "job_duration")
+          if m.has_key?("metric") and (m["metric"].include? "job_state" or m["metric"].include? "job_duration" or m["metric"].include? "xrage")
             m["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
           end
           es_out.add(ts, m)
