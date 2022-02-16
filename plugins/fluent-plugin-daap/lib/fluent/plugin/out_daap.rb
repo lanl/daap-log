@@ -249,11 +249,7 @@ module Fluent
             end
             new_rec = {}
             new_rec['metric'] = 'xrage_metrics'
-            if record['message'].include?('Asteroid')
-              record['message'] = common_clean(record['message'], 'xrage', 'job_id')
-            else
-              record['message'] = common_clean(record['message'], 'xrage', 'cpu')
-            end
+            record['message'] = common_clean(record['message'], 'xrage', 'job_id')
             #Split into key/value pairs
 #'xrage,desc=Spider_Plot,host=gr-rfe2.lanl.gov,num_scm_ids=3,problem=Asteroid.input,scm_id_0.EB0=master,scm_id_0.EH0=73dc352f32e874fb9030c9f6ab64abb0b358c02b,scm_id_1.EB1=master,scm_id_1.EH1=af0259e3ced2bc528b38c58b9be3b5e73432b06e,scm_id_2.EB2=master,scm_id_2.EH2=ef8916fd275c8a01dc8485e137389d2f1d74b139 cpu=\"Intel(R)Xeon(R)CPUE5-2695v4@2.10GHz\",env=\"SNOW\",numpe=256,nodes=8,scale=0.12,ppn_min=32,ppn_max=32,dims=3,avg_cells_min=6267,avg_cells_avg=8515.70588235294,avg_cells_max=8739,rss_min=3.455,rss_avg=7.682944444444445,rss_max=8.349,rss_max_min=3.454,rss_max_avg=8.017000000000003,rss_max_max=8.739,cyc_cc_min=0,cyc_cc_avg=1120288.2352941176,cyc_cc_max=1413200,sum_cyc_sec=76365,job_id=4963828,elapsed_s=302.733,n_cycles=160,elapsed_minus_first_s=298.30078125 1641329905000000000\n'})
 
@@ -581,7 +577,7 @@ module Fluent
                 else
                   @jobs[job_key] = {'timestamp' => time, 'max_mem' => max_mem, 'samples' => samples}
                 end
-                if samples % 4 == 0
+                if samples % 1 == 0
                   dup_rec = new_rec.clone
                   dup_rec['type'] = item + "_max"
                   dup_rec['val'] = fields[item]
