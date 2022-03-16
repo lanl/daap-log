@@ -37,13 +37,21 @@ module Fluent
       end
 
       def common_clean(message, code, first_field)
-        message.gsub!(/^#{code},/, '')
+        if code == 'mcatk' or code == 'poisson-metrics'
+          message.gsub!(/^#{code} /, '')
+        else
+          message.gsub!(/^#{code},/, '')
+        end
+
         message.gsub!(/\.localdomain/, '')
         message.gsub!(/\.lanl\.gov/, '')
         message.gsub!(/\\/, '')
         message.gsub!(/"/, '')
-        message.gsub!(/\s+(#{first_field}=)/, ',\1')
+        if code != 'mcatk' and code != 'poisson-metrics'
+          message.gsub!(/\s+(#{first_field}=)/, ',\1')
+        end
         message.gsub!(/^(.*) (\d+).*/, '\1,timestamp=\2')
+        
         return message
       end
 
@@ -80,12 +88,14 @@ module Fluent
               caliper_metrics.gsub!(/\\/, '')
               path_indent_match = caliper_metrics.match(/([\s]*)(.*)/)
               path_indent, caliper_metrics = path_indent_match.captures
-              caliper_metrics.gsub!(/[\s]+/, ' ')
-              caliper_pairs = caliper_metrics.split(' ')
+              caliper_metrics_mod = caliper_metrics.gsub(/[\s]+/, ' ')
+              caliper_pairs = caliper_metrics_mod.split(' ')
               new_rec['caliper_name'] = caliper_name.gsub(/[_]/, '')
               if code == "sap"
                 new_rec['numpe'] = caliper_pairs[0]
                 new_rec['path'] = caliper_pairs[1]
+                path_indent_match = caliper_metrics.match(/\d+\s([\s]+).*/)
+                path_indent  = path_indent_match.captures[0]
                 new_rec['path_with_indent'] = path_indent + caliper_pairs[1]
                 new_rec['path_indent_len'] = path_indent.length
                 new_rec['min_time'] = caliper_pairs[2].to_f.round(8)
@@ -128,10 +138,10 @@ module Fluent
 #2021-11-15T07:02:32-07:00       appdata {"message":"lap,desc=spider_plot,host=sn331.localdomain,jobid=4817351,problem=LAP_LH_Spider_Plot_ndim156 problem_name=\"LAP_LH_Spider_Plot_ndim156\",application_name=\"FLAG\",problem_description=\"LAP_LH_Scaling_ndim156_32PE_per_node\",suite=\"CTS1Ifast\",total_number_of_zones=7836192,number_of_cycles-1=33,tot-time_cycles-1=\"2.113E-04\",total_number_of_processors=64,adjusted_runtime=54640.98319680001 1636984949000000000\n"}
 #             {"message" => "sap,problem=SAP_PERF_Shape_Charge_spider_plot_symmetry,desc=spider_plot,jobid=5037788 npes=128,nnodes=4,cells=3513600,cpu=\"sn028.localdomain\",version=\"CTS1-intel-openmpi-sgl-no_offload-v17.4.3dev\",cpu_time_per_cell=21.115,runtime_per_cycle=579606.75 1643815974000000000\n"}
 
-	  if !record.has_key?('metrics') and record.has_key?('message') and record['message'].include?('lap,')
+	  if !record.has_key?('metrics') and record.has_key?('message') and record['message'].include?('lap-metrics,')
             new_rec = {}
             new_rec['metric'] = 'lap_metrics'
-            record['message'] = common_clean(record['message'], 'lap', 'problem_name')
+            record['message'] = common_clean(record['message'], 'lap-metrics', 'problem_name')
             kv_pairs = record['message'].split(',')
             kv_pairs.each do | item |
               k, v = item.split('=')
@@ -163,7 +173,7 @@ module Fluent
             next
           end
 # appdata {"message":"poisson-metrics,host=sn031.localdomain app=\"Ristra-Poisson\",problemname=\"Ristra Poisson Prototype Problem\",description=\"Spider Plot\",cpu=\"TODO\",env=\"snow\",nodes=2,numpe=32,ppn=16,dims=\"12288x12288\",cells=150994944,jobid=\"TODO\",cycles=75000,cycle_time=0.6634986572916667 1637115456000000000\n"}
-	  if !record.has_key?('metrics') and record.has_key?('message') and record['message'].include?('poisson-metrics,')
+	  if !record.has_key?('metrics') and record.has_key?('message') and record['message'].include?('poisson-metrics ')
             new_rec = {}
             new_rec['metric'] = 'ristra_metrics'
             record['message'] = common_clean(record['message'], 'poisson-metrics', 'app')
@@ -210,6 +220,32 @@ module Fluent
                 new_rec[item] = val
             end
             ["n_cores", "n_particles"].each do |item|
+                val = new_rec[item].to_i
+                new_rec[item] = val
+            end
+            ts = new_rec["timestamp"].to_i/1000000000
+            #            new_rec["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
+            new_rec["timestamp"] = ts
+            metrics.push(new_rec)
+            next
+          end
+#2022-02-10T14:19:01-07:00       appdata {"message":"mcatk app=\"mcatk-parallel-driver\",problem=\"ZEBR8H_CylRZ.pbi\",description=\"mcatk spider plot data\",cpu=\"Intel(R) Xeon(R) CPU E5-2695 v4 @ 2.10GHz\",machine=\"sn-rfe3.lanl.gov\",particles_per_cycle=\"4000\",ppn=32,nodes=1,numpe=32,jobid=\"mcatk-run-32-numpe-2022-18-10-14-02\",total_solve_time=\"0.090000\",env_LCOMPILER=\"gcc\",env_SLURM_MPI_TYPE=\"pmix_v2\",env_LMPI=\"openmpi\",env_MODULEPATH_ROOT=\"/usr/share/modulefiles\",env_OMPI_F77=\"gfortran\",env_OMPI_FC=\"gfortran\",env_QT_ROOT=\"/usr/projects/hpcsoft/toss3/common/qt/4.8.6\",env_LMPIVER=\"3.1.6\",env_MIDDLEMAN_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/middleman-3.0.3-rrfarox3fmfczctng5qtrej3bhtsin2d\",env_MPI_NAME=\"openmpi\",env_QWT_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/qwt-5.2.2-ejeks4tpxmwo3bypais3ky5omcateu54\",env_F5_CXX_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/f5_cxx-1.6.2-rfxyvajy3sxg7c2javn2in5vc24i2trl\",env_MPI_VERSION=\"3.1.6\",env_OMPI_CC=\"gcc\",env_LCOMPILERMAJVER=\"8\",env_MPIHOME=\"/usr/projects/hpcsoft/toss3/snow/openmpi/3.1.6-gcc-8.3.0\",env_MPI_ROOT=\"/usr/projects/hpcsoft/toss3/snow/openmpi/3.1.6-gcc-8.3.0\",env_BOOST_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/boost-1.69.0-vluaiqxwikmzichzmo3otfpifjm4h7q6\",env_OMPI_CXX=\"g++\",env_LMPIMAJVER=\"3\",env_LCOMPILERVER=\"8.3.0\",env_CMAKE_PREFIX_PATH=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/qwt-5.2.2-ejeks4tpxmwo3bypais3ky5omcateu54:/usr/projects/hpcsoft/toss3/common/qt/4.8.6:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/middleman-3.0.3-rrfarox3fmfczctng5qtrej3bhtsin2d:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-scipy-1.5.4-arptjrgulhlqye3pdbnp5lswlp4mqyae:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-pybind11-2.5.0-h3lvujtrrfmpgfclraj6vhudeqqyfx6x:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-matplotlib-3.3.3-jomtacbuxqiidv5a4ltad4w4zothq4sn:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-python-dateutil-2.8.0-tdljsrcl7bjrz7mwx2puxoaz6jbfv3fn:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-pyparsing-2.4.2-ilfjto5ryw4tykyqcket6rzkzwvlgmib:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-pillow-7.2.0-44jydoc7rpwaohsu6f4qjbbwawlxeyhh:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/libjpeg-turbo-2.0.4-4npcpdor5jqf6buln73mventb5a4ioko:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-kiwisolver-1.1.0-7bchrqkifibkcogkd4y2tzu56q2mxtx2:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-cycler-0.10.0-zmx4xwwyblwlwroa3v3zzfxibarwzh3m:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-h5py-2.10.0-je37mcrshhtjqadc37zax257vv23ayrg:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-six-1.14.0-urcpwosg7pnvo2dpj6x7ptgbfjtwhpef:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-numpy-1.19.4-gujyw2ho3rznmcbezjtnnzpiw2cwyhtf:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/py-setuptools-50.3.2-ripqbripmna6xr7eo4glj2xo6cgsj3on:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/mcatk-loki-0.1.7-ybt46pnkinkk455wptvxr4w4t5y5mjnw:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/meshwriter-1.0.0-rr7xkg33fugicfelkgjyyhzqrb2lt7pn:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/mpark-variant-1.4.0-65yqgbfomhs5u6tuvxgl7hwbd5ujgiyz:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/unittest-cpp-1.6.0-vml6lutukzbzabmon5x6eaxchz2nhoi3:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/ndatk-1.1.1-fotqa6e7fo6rdj7mlvpmlznclb5nk6ts:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/f5_cxx-1.6.2-rfxyvajy3sxg7c2javn2in5vc24i2trl:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/hdf5-1.10.7-qlnksh3o33ughir5yxao6ukyjxzyte7w:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/distributions-0.2.0-aermy4whl3nxwlqvg4qy57ja5ksuowun:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/trait-2.0.0-yyimddjhzuo6ra5z4ioxg4mgkj7vbf7f:/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/boost-1.69.0-vluaiqxwikmzichzmo3otfpifjm4h7q6:/usr/projects/hpcsoft/toss3/common/x86_64/cmake/3.17.2\",env_CC=\"gcc\",env_NDATK_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/ndatk-1.1.1-fotqa6e7fo6rdj7mlvpmlznclb5nk6ts\",env_UNITTEST_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/unittest-cpp-1.6.0-vml6lutukzbzabmon5x6eaxchz2nhoi3\",env_LOKI_ROOT=\"/yellow/usr/projects/mcatk/dependencies/spack_mcatk_toss3_01-12-2022/spack/opt/spack/linux-rhel7-x86_64/gcc-8.3.0/mcatk-loki-0.1.7-ybt46pnkinkk455wptvxr4w4t5y5mjnw\" 1644527941000000000\n"}
+	  if !record.has_key?('metrics') and record.has_key?('message') and record['message'].include?('mcatk ')
+            new_rec = {}
+            new_rec['metric'] = 'mcatk_metrics'
+            record['message'] = common_clean(record['message'], 'mcatk', '')
+            kv_pairs = record['message'].split(',')
+            kv_pairs.each do | item |
+              k, v = item.split('=')
+              v.strip!()
+              new_rec[k] = v
+            end
+#         particles_per_cycle=\"4000\",ppn=32,nodes=1,numpe=32,jobid=\"mcatk-run-32-numpe-2022-18-10-14-02\",total_solve_time=\"0.090000\
+            ["total_solve_time"].each do |item|
+                val = new_rec[item].to_f.round(3)
+                new_rec[item] = val
+            end
+            ["ppn", "nodes", "numpe"].each do |item|
                 val = new_rec[item].to_i
                 new_rec[item] = val
             end
@@ -268,6 +304,9 @@ module Fluent
             if new_rec['metric'].include?('xrage_metrics')
               if new_rec.has_key?('job_id')
                 new_rec['job_id'].gsub!(/-/, '')
+              end
+              if new_rec.has_key?('run_date')
+                new_rec['timestamp'] = new_rec['run_date'].to_i
               end
 #scm_id_0.EH0=9c29c13659d2e995cbd4f22fb8634bc7c5b47b5b,scm_id_0.EB0=master,scm_id_1.EH1=72df37ead555035ba71867782fe6a69b216ff30a,scm_id_1.EB1=master,scm_id_2.EH2=b877a35ac8480f5f05280f760f47e4a43f1b24c3,scm_id_2.EB2=master,
               if new_rec.has_key?('scm_id_0.EH0')
@@ -629,7 +668,8 @@ module Fluent
 		or m["metric"].include? "sap" \
 		or m["metric"].include? "ristra" \
 		or m["metric"].include? "lap" \
-                or m["metric"].include? "jayenne")
+                or m["metric"].include? "jayenne" \
+                or m["metric"].include? "mcatk")
             m["timestamp"] = Time.at(ts).utc.strftime("%Y-%m-%dT%H:%M:%S")
           end
           es_out.add(ts, m)
