@@ -28,6 +28,7 @@ bool daapRank_zero = false;
 
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t finalize_mutex = PTHREAD_MUTEX_INITIALIZER;
+char daap_hostname[LOCAL_MAXHOSTNAMELEN];
 
 #define NUM_TRIES_FOR_NULL_HOSTNAME 8
 
@@ -137,7 +138,6 @@ int daapInit(const char *app_name, int msg_level, int agg_val, transport transpo
      * All data at present in daapInit structs is specific to a process,
      * not a thread, so only populate struct once per MPI task (thread group).
      */
-
     pthread_mutex_lock(&init_mutex);
     if( daapInit_called ) {
         pthread_mutex_unlock(&init_mutex);

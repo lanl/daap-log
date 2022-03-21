@@ -53,7 +53,7 @@ extern int getmillisectime_as_str(char **time_str);
 #define LOCAL_MAXHOSTNAMELEN HOST_NAME_MAX
 #endif
 
-char daap_hostname[LOCAL_MAXHOSTNAMELEN];
+extern char daap_hostname[LOCAL_MAXHOSTNAMELEN];
 
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define PRINT_MAX 1024
