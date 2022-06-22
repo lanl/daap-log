@@ -57,24 +57,15 @@ ccmake ..
 etc.
 ```
 
-## Running the example
-
-A simple example demonstrating the logging capability is included. BUILD_TEST must be enabled in
-the initial configure options for it to be built.
-
-After running make install:
-
-```
-cd test
-./test_logger
-```
-
-You can then see what output was written by examining the contents of syslog. The exact location
-of syslog is system-dependent; on many Linux systems it is in /var/syslog.
-
 ## Deployment
 
-Add additional notes about how to deploy this on a live system
+For crossroads acceptance testing, before using a daap-profiled application:
+```
+source daap-crossroads.sh
+```
+
+Running a daap-profiled application on a LANL system requires that it be run using a script that 
+launches telegraf. For an example of this, see the scripts/daap-launch directory.
 
 ## Built With
 
@@ -82,7 +73,7 @@ Add additional notes about how to deploy this on a live system
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](https://github.com/daap_log/xxx) for details on our code of conduct, and the process for submitting pull requests to us.
+Please contact the authors if you encounter a problem or bug, or if you want to propose additional functionality.
 
 ## Versioning
 
