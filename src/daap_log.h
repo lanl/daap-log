@@ -1,15 +1,59 @@
 /*
- * Data Analytics Application Profiling API
+ * Data Analytics Application Profiling API (DAAP)
  *
  * Provides a simplifying user code-oriented library that interfaces
  * with intermediaries so that data can be logged or rows inserted
  * into a database on a remote monitoring cluster
- * (Tivan at LANL on the unclassified network).
  *
- * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
- * Original author: Charles Shereda, cpshereda@lanl.gov
- * Additional authors: Hugh Greenberg, hng@lanl.gov
+ * API functions in this header file:
+ *****************
+ * daapLogWrite()
  *
+ * Writes out a user-specified message, with format specifier capability.
+ * Note that this is not a secure function and contains the same format vulnerabilities
+ * as calling printf() and should not be used in untrusted environments.
+ *
+ *****************
+ * daapLogHeartbeat()
+ * daapLogJobStart()
+ * daapLogJobDuration()
+ * daapLogJobEnd()
+ *
+ * Each of these calls sends a special message indicating an active job heartbeat, the start
+ * of a job, the duration of a job, and the end of a job, respectively.
+ * daapLogJobStart() and daapLogJobEnd()
+ * should only be called by rank 0.
+ *
+ *****************
+ * daapInit()
+ * daapFinalize()
+ *
+ * Routines to initialize and destroy structures needed by DAAP. Must be called by all ranks
+ * that make DAAP calls.
+ *
+ *****************
+ * daapLogRead()
+ *
+ *   Placeholder. Would provide the ability to read messages that
+ *   have been written by the application, **local to the node that is
+ *   calling the function**. Will be further developed if demand exists.
+ *
+ *****************
+ * Authors:
+ *          Hugh Greenberg, hng _at_ lanl dot gov
+ *          Adam Good, agood _at_ lanl dot gov
+ *          Charles Shereda
+ *
+ *****************
+ * Copyright (c) 2020-2022. Triad National Security, LLC. All rights reserved.
+ * This program was produced under U.S. Government contract 89233218CNA000001 for Los Alamos
+ * National Laboratory (LANL), which is operated by Triad National Security, LLC for the U.S.
+ * Department of Energy/National Nuclear Security Administration. All rights in the program are
+ * reserved by Triad National Security, LLC, and the U.S. Department of Energy/National Nuclear
+ * Security Administration. The Government is granted for itself and others acting on its behalf a
+ * nonexclusive, paid-up, irrevocable worldwide license in this material to reproduce, prepare
+ * derivative works, distribute copies to the public, perform publicly and display publicly, and to permit
+ * others to do so.
  */
 
 #ifndef DAAP_LOG_H
@@ -148,6 +192,10 @@ int daapLogWrite(const char *message, ...);
 
 /* Fortran version of daapLogWrite */
 void daaplogwrite_(char *message, int len);
+
+/* Placeholder for on-node read capability (presently does nothing,
+   could be developed if demand exists) */
+int daapLogRead(int key, int time_interval, int max_rows, char **row_array);
 
 /* Function to log a heartbeat from an application process */
 int daapLogHeartbeat(void);

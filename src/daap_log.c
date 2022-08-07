@@ -4,7 +4,7 @@
  * A simplifying and abstracting usercode-oriented library that
  * provides the means for codes running on HPC cluster compute nodes
  * to log messages to a logfile on an external system -
- * at LANL this is the Tivan Data Analytics system.
+ * at LANL this (was) the Tivan Data Analytics system.
  * From the external system, logs can be analyzed (to see if a code is
  * still progressing normally, for instance).
  *
@@ -18,37 +18,20 @@
  * the compute cluster and into the external analytics system are hidden
  * from the user by this library.
  *
- * API functions in this file:
- *****************
- * daapLogWrite()
- *
- * Writes out a user-specified message, with format specifier capability.
- * Note that this is not a secure function and contains the same format vulnerabilities
- * as calling printf() and should not be used in untrusted environments.
  *
  *****************
- * daapLogHeartbeat()
- * daapLogJobStart()
- * daapLogJobDuration()
- * daapLogJobEnd()
- *
- * Each of these calls sends a special message indicating an active job heartbeat, the start
- * of a job, the duration of a job, and the end of a job, respectively. 
- * daapLogJobStart() and daapLogJobEnd()
- * should only be called by rank 0.
- *
- *
- *****************
- * daapLogRead()
- *
- *   Placeholder. Would provide the ability to read messages that
- *   have been written by the application, **local to the node that is
- *   calling the function**. Will be further developed if demand exists.
- *
- *****************
- * Copyright (C) 2020 Triad National Security, LLC. All rights reserved.
- * Authors: Charles Shereda, cpshereda@lanl.gov
- *          Hugh Greenberg, hng@lanl.gov
+ * Copyright (C) 2020-2022 Triad National Security, LLC. All rights reserved.
+ * Authors: Charles Shereda
+ *          Hugh Greenberg
+ *          Adam Good
+ * This program was produced under U.S. Government contract 89233218CNA000001 for Los Alamos
+ * National Laboratory (LANL), which is operated by Triad National Security, LLC for the U.S.
+ * Department of Energy/National Nuclear Security Administration. All rights in the program are
+ * reserved by Triad National Security, LLC, and the U.S. Department of Energy/National Nuclear
+ * Security Administration. The Government is granted for itself and others acting on its behalf a
+ * nonexclusive, paid-up, irrevocable worldwide license in this material to reproduce, prepare
+ * derivative works, distribute copies to the public, perform publicly and display publicly, and to permit
+ * others to do so.
  */
 
 #include <string.h>
