@@ -205,7 +205,7 @@ $(BUILDDIR)/%.o : $(SRCDIR)/%.cc
 .
 .
 ```
-Making using these modifications, with an existing value for DAAP_ROOT would then look like this:
+Making the project using these modifications, with an existing value for DAAP_ROOT would then look like this:
 ```
 cps@ubuntudesktop:/opt/cps/tivan-acceptance-testing/pennant$ echo $DAAP_ROOT
 /opt/cps/tivan-acceptance-testing/daap-log
